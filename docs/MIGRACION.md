@@ -69,6 +69,8 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 | Favicon | `public/favicon.svg` | R | `app/icon.svg` | Pendiente |
 | Emojis como iconos (69 líneas) | Varios componentes | A: lucide-react | En cada componente | Pendiente |
 | Colores fijos `#486AE6`, `#A65D8B`, `#7AD349`, `slate-*` | Todos los componentes | A: tokens de la paleta | En cada componente | Pendiente |
+| Componentes compartidos (botón, etiqueta de estado, tabla, modal, confirmación, aviso, campos, encabezado, lista vacía) | Repetidos en cada módulo; `window.confirm` y `alert` | C: según el prototipo aprobado | `components/ui/*` + catálogo en `/dev/componentes` (solo desarrollo) | Hecho |
+| Colores de estado por módulo | Clases distintas en cada componente | C: un tono por significado | `lib/estados.ts` | Hecho |
 
 ### Comunicación con el backend
 
@@ -148,7 +150,10 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 
 3. **Página tras el login** (2026-10-30): la sección principal de cada rol (`INICIO_POR_ROL`): Admin a Control de Reservas, Operador a Inventario, Profesor a Reserva de Salas, Estudiante a Mesa de Ayuda. Si `?next=` apunta a una ruta que el rol no tiene permitida, se usa su sección principal.
 4. **Menú**: se mantiene el menú lateral de hamburguesa a la izquierda, con solo las opciones permitidas para el rol.
-5. **Diseño** (2026-10-30): prototipo visual antes de programar las pantallas de cada módulo.
+5. **Diseño** (2026-10-30): prototipo visual aprobado (lienzo "Prototipo Control TIC"); sus componentes se implementan en `components/ui` antes de migrar los módulos.
+6. **Orden de migración** (2026-10-30): de menor a mayor complejidad, una rama y un PR por módulo: Gestión de Usuarios, Inventario (+ conteos y reportes), Reservas (+ control de reservas), Mesa de Ayuda (alumno + panel), Mapa de Aulas.
+7. **Formularios** (2026-10-30): react-hook-form + zod; se instalan con el primer módulo que los usa (Gestión de Usuarios).
+8. **Pruebas automáticas y CI** (2026-10-30): ninguna por ahora; se valida con `pnpm lint`, `pnpm build` y pruebas manuales por rol.
 
 ## 5. Riesgos conocidos (sin cambios en el backend)
 
