@@ -1,26 +1,60 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Paleta institucional UAEMéx.
+ *
+ * Cada color se registra en @theme para que Tailwind genere sus utilidades
+ * (bg-verde, text-sobre-superficie, border-outline, etc.). Así los componentes
+ * no repiten valores hexadecimales y un cambio de color se hace en un solo lugar.
+ *
+ * Reglas de contraste (WCAG AA, 4.5:1 para texto normal):
+ * - "dorado" (#D4A017) solo se usa como texto sobre "verde-oscuro" (7.2:1).
+ *   Sobre fondos claros su contraste es 2.3:1; para etiquetas doradas en fondo
+ *   claro se usa "dorado-texto".
+ * - "outline" sirve para bordes y separadores, no para texto pequeño.
+ * - Cada familia de estado (error, alerta, info) tiene un color sólido,
+ *   un fondo claro y un texto oscuro pensado para leerse sobre ese fondo.
+ */
+@theme {
+  /* Familia verde (institucional) */
+  --color-verde: #164e33;
+  --color-verde-hover: #0f3d27;
+  --color-verde-claro: #b7ebcb;
+  --color-verde-oscuro: #002112;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* Familia dorada (acentos) */
+  --color-dorado: #d4a017;
+  --color-dorado-claro: #fcefc7;
+  --color-dorado-oscuro: #3e2e00;
+  --color-dorado-texto: #8a6500;
+
+  /* Familia neutra (superficies y textos) */
+  --color-superficie: #f7faf7;
+  --color-sobre-superficie: #191c1a;
+  --color-variante: #dce5dd;
+  --color-sobre-variante: #414942;
+  --color-outline: #717971;
+
+  /* Estados: error, rechazo, eliminación, equipo dañado */
+  --color-error: #ba1a1a;
+  --color-error-claro: #ffdad6;
+  --color-error-oscuro: #410002;
+
+  /* Estados: mantenimiento, pendiente, advertencia */
+  --color-alerta: #9a4a00;
+  --color-alerta-claro: #ffdcc2;
+  --color-alerta-oscuro: #2f1500;
+
+  /* Estados: informativo, en uso */
+  --color-info: #1f5fa8;
+  --color-info-claro: #d6e3ff;
+  --color-info-oscuro: #001b3d;
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-superficie);
+  color: var(--color-sobre-superficie);
 }
