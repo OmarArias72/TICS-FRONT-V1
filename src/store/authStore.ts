@@ -4,7 +4,7 @@ import { createJSONStorage, persist, type StateStorage } from "zustand/middlewar
 import { usuarioService } from "@/lib/api/services";
 import type { Usuario } from "@/types/api";
 
-type ResultadoLogin = { success: true } | { success: false; message: string };
+type ResultadoLogin = { success: true; user: Usuario } | { success: false; message: string };
 
 /**
  * Almacenamiento vacío para el servidor. Durante el prerenderizado no existe
@@ -51,7 +51,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const user = await usuarioService.login({ email, password });
           set({ user });
-          return { success: true };
+          return { success: true, user };
         } catch (error) {
           const message = error instanceof Error ? error.message : "Error al iniciar sesión";
           return { success: false, message };

@@ -3,9 +3,9 @@ import type { NextConfig } from "next";
 /*
  * URL del backend Spring Boot. Solo se lee en el servidor de Next.js
  * (no lleva prefijo NEXT_PUBLIC_), por lo que nunca llega al navegador.
- * El valor por defecto coincide con server.port=8000 del backend.
+ * El valor por defecto coincide con server.port=8080 del backend (src/main/resources/application.properties).
  */
-const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000";
+const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8080";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,

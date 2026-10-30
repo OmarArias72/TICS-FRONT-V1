@@ -1,14 +1,13 @@
 import type { NombreRol } from "@/types/api";
 
+import { tienePermiso, type Permiso } from "./permisos";
+
 /**
- * Fuente única de roles y permisos por ruta.
+ * Roles y acceso a rutas.
  *
- * En el proyecto original estas reglas estaban duplicadas en AppRoutes.jsx y
- * NavBar.jsx, y no coincidían. Ahora el guard de rutas y el menú leen esta
- * misma tabla, de modo que un enlace visible siempre lleva a una ruta permitida.
- *
- * Importante: esto solo controla la interfaz. El backend no valida la sesión,
- * por lo que no sustituye a una autorización en el servidor.
+ * Cada ruta protegida exige un permiso de lib/auth/permisos.ts. El guard de
+ * rutas y el menú leen esta misma tabla, así que un enlace visible siempre
+ * lleva a una ruta permitida.
  */
 
 export const ROLES = {
@@ -26,11 +25,6 @@ export const ID_ROL: Record<NombreRol, number> = {
   Estudiante: 4,
 };
 
-const TODOS: readonly NombreRol[] = Object.values(ROLES);
-const SOLO_ADMIN: readonly NombreRol[] = [ROLES.ADMIN];
-const TICS: readonly NombreRol[] = [ROLES.ADMIN, ROLES.OPERADOR];
-const RESERVAS: readonly NombreRol[] = [ROLES.ADMIN, ROLES.PROFESOR, ROLES.ESTUDIANTE];
-
 export type SeccionMenu = "principal" | "admin";
 
 export interface RutaProtegida {
@@ -38,39 +32,66 @@ export interface RutaProtegida {
   /** Texto del enlace en el menú. Sin etiqueta, la ruta no aparece en el menú. */
   label?: string;
   seccion?: SeccionMenu;
-  roles: readonly NombreRol[];
+  permiso: Permiso;
 }
 
 /**
- * Tabla de rutas protegidas. Una subruta hereda la regla de su ruta padre
- * más específica (por ejemplo, /inventario/conteo usa la de /inventario).
- *
- * Decisión 2026-10-30: /admin/reservas y /admin/config-agenda son solo de Admin.
+ * Tabla de rutas protegidas. Una subruta sin entrada propia hereda la regla de
+ * su ruta padre más específica.
  */
 export const RUTAS_PROTEGIDAS: readonly RutaProtegida[] = [
-  { href: "/aulas", label: "Mapa de Aulas", seccion: "principal", roles: TODOS },
-  { href: "/inventario", label: "Inventario Total", seccion: "principal", roles: TICS },
-  { href: "/reservas", label: "Reserva de Salas", seccion: "principal", roles: RESERVAS },
-  { href: "/solicitudes-tecnicas", label: "Mesa de Ayuda", seccion: "principal", roles: TODOS },
+  { href: "/aulas", label: "Mapa de Aulas", seccion: "principal", permiso: "salas.ver" },
+  { href: "/inventario", label: "Inventario Total", seccion: "principal", permiso: "inventario.ver" },
+  { href: "/inventario/conteo", permiso: "inventario.conteos" },
+  {
+    href: "/reservas",
+    label: "Reserva de Salas",
+    seccion: "principal",
+    permiso: "reservas.reservar",
+  },
+  {
+    href: "/solicitudes-tecnicas",
+    label: "Mesa de Ayuda",
+    seccion: "principal",
+    permiso: "mesaAyuda.solicitar",
+  },
 
-  { href: "/admin/usuarios", label: "Gestión de Usuarios", seccion: "admin", roles: SOLO_ADMIN },
-  { href: "/admin/reservas", label: "Control de Reservas", seccion: "admin", roles: SOLO_ADMIN },
+  {
+    href: "/admin/reservas",
+    label: "Control de Reservas",
+    seccion: "admin",
+    permiso: "reservas.gestionar",
+  },
   {
     href: "/admin/config-agenda",
     label: "Apertura / Cierre Agenda",
     seccion: "admin",
-    roles: SOLO_ADMIN,
+    permiso: "agenda.configurar",
   },
   {
     href: "/admin/solicitudes-tecnicas",
     label: "Panel Mesa de Ayuda",
     seccion: "admin",
-    roles: TICS,
+    permiso: "mesaAyuda.atender",
+  },
+  {
+    href: "/admin/usuarios",
+    label: "Gestión de Usuarios",
+    seccion: "admin",
+    permiso: "usuarios.gestionar",
   },
 ];
 
-/** Ruta a la que se envía al usuario tras iniciar sesión si no venía de otra. */
-export const RUTA_INICIO_SESION = "/aulas";
+/**
+ * Página a la que llega cada rol al iniciar sesión: su sección principal.
+ * Debe ser una ruta que el rol tenga permitida.
+ */
+export const INICIO_POR_ROL: Record<NombreRol, string> = {
+  Admin: "/admin/reservas",
+  "Operador-tics": "/inventario",
+  Profesor: "/reservas",
+  Estudiante: "/solicitudes-tecnicas",
+};
 
 function coincide(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -93,7 +114,7 @@ export function reglaDeRuta(pathname: string): RutaProtegida | undefined {
 export function puedeAcceder(rol: NombreRol | undefined, pathname: string): boolean {
   if (!rol) return false;
   const regla = reglaDeRuta(pathname);
-  return regla ? regla.roles.includes(rol) : true;
+  return regla ? tienePermiso(rol, regla.permiso) : true;
 }
 
 /** Enlaces del menú visibles para un rol, en el orden de la tabla. */
@@ -101,17 +122,21 @@ export function enlacesDeMenu(rol: NombreRol | undefined, seccion: SeccionMenu) 
   if (!rol) return [];
   return RUTAS_PROTEGIDAS.filter(
     (ruta): ruta is RutaProtegida & { label: string } =>
-      ruta.seccion === seccion && Boolean(ruta.label) && ruta.roles.includes(rol),
+      ruta.seccion === seccion && Boolean(ruta.label) && tienePermiso(rol, ruta.permiso),
   );
 }
 
 /**
- * Valida el parámetro `?next=` del login para evitar redirecciones abiertas:
- * solo se aceptan rutas internas que empiecen por una sola barra.
+ * Destino tras iniciar sesión.
+ *
+ * Usa `?next=` solo si es una ruta interna (evita redirecciones abiertas) y el
+ * rol puede entrar en ella; si no, envía a la sección principal del rol en
+ * lugar de mostrar "Acceso denegado" justo después del login.
  */
-export function destinoSeguro(next: string | null): string {
-  if (next && next.startsWith("/") && !next.startsWith("//")) {
+export function destinoTrasLogin(next: string | null, rol: NombreRol): string {
+  const esInterna = next !== null && next.startsWith("/") && !next.startsWith("//");
+  if (esInterna && next !== "/login" && puedeAcceder(rol, next)) {
     return next;
   }
-  return RUTA_INICIO_SESION;
+  return INICIO_POR_ROL[rol];
 }
