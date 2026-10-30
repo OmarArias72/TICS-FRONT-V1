@@ -1,6 +1,16 @@
-import { ModuloPendiente } from "@/components/ui/ModuloPendiente";
+import { Suspense } from "react";
+import type { Metadata } from "next";
 
-// Temporal: se reemplaza al migrar features/classroom-map.
-export default function AulasPage() {
-  return <ModuloPendiente titulo="Mapa de Aulas" />;
+import { PageLoader } from "@/components/ui/PageLoader";
+import { AulasPage } from "@/features/aulas/AulasPage";
+
+export const metadata: Metadata = { title: "Mapa de Aulas | Control TIC" };
+
+// AulasPage lee `?sala=` con useSearchParams, que necesita un límite de Suspense.
+export default function Page() {
+  return (
+    <Suspense fallback={<PageLoader label="Cargando salas..." />}>
+      <AulasPage />
+    </Suspense>
+  );
 }
