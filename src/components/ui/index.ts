@@ -8,6 +8,8 @@ export { FormField, Input, Label, Select, Textarea } from "./Form";
 export { IconButton } from "./IconButton";
 export { Modal } from "./Modal";
 export { ModuloPendiente } from "./ModuloPendiente";
+export { MotivoModal } from "./MotivoModal";
+export type { MotivoModalProps } from "./MotivoModal";
 export { PageContainer, PageHeader } from "./PageHeader";
 export { PageLoader } from "./PageLoader";
 export { PasswordChecklist } from "./PasswordChecklist";

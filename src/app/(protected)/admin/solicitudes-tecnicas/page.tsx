@@ -1,6 +1,9 @@
-import { ModuloPendiente } from "@/components/ui/ModuloPendiente";
+import type { Metadata } from "next";
 
-// Temporal: se reemplaza al migrar features/solicitudes-tecnicas.
-export default function AdminSolicitudesTecnicasPage() {
-  return <ModuloPendiente titulo="Panel Mesa de Ayuda" />;
+import { PanelMesaAyudaPage } from "@/features/mesa-ayuda/PanelMesaAyudaPage";
+
+export const metadata: Metadata = { title: "Panel Mesa de Ayuda | Control TIC" };
+
+export default function Page() {
+  return <PanelMesaAyudaPage />;
 }

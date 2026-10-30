@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ComponentProps, type ReactNode } from "react";
+import { useState, type ComponentProps } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -8,8 +8,7 @@ import { ArrowRightLeft, Ban, Check, MessageSquare, X } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { z } from "zod";
 
-import { Alert, Button, FormField, Input, Modal, Select, Textarea } from "@/components/ui";
-import type { VarianteBoton } from "@/components/ui";
+import { Alert, Button, FormField, Input, Modal, MotivoModal, Select } from "@/components/ui";
 import { FUNCIONES_BACKEND } from "@/lib/api/funcionesBackend";
 import { reservaSalasService } from "@/lib/api/services";
 import { formatearDia, hoyISO } from "@/lib/fechas";
@@ -33,14 +32,7 @@ const horarioSchema = z
     message: "La hora de fin debe ser posterior a la de inicio",
   });
 
-const motivoSchema = z.object({
-  motivo: z
-    .string()
-    .trim()
-    .min(5, "Escribe un motivo de al menos 5 caracteres")
-    .max(500, "Máximo 500 caracteres"),
-});
-type MotivoValues = z.infer<typeof motivoSchema>;
+
 
 /** Invalida agenda y pendientes tras cualquier acción administrativa. */
 function useAlTerminar(onClose: () => void) {
@@ -193,74 +185,6 @@ function AprobarForm({ solicitud, salas, idAdmin, onClose }: AprobarProps & { so
 /* ================================================================
  * Rechazar solicitud / Cancelar reserva (ambos piden un motivo)
  * ================================================================ */
-
-export interface MotivoModalProps {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  description?: string;
-  etiquetaBoton: string;
-  icono: ReactNode;
-  enviando: boolean;
-  onEnviar: (motivo: string) => void;
-  /** Cambia en cada apertura para reiniciar el formulario. */
-  claveForm: string | number;
-  /** Etiqueta del campo de texto (por defecto, "Motivo"). */
-  etiquetaCampo?: string;
-  hint?: string;
-  varianteBoton?: VarianteBoton;
-  /** Texto del botón para volver (por defecto, "Volver"). */
-  etiquetaVolver?: string;
-  /** Aviso sobre el formulario (por ejemplo, "Pendiente de backend"). */
-  aviso?: ReactNode;
-  deshabilitado?: boolean;
-}
-
-/** Modal con un solo campo de texto obligatorio (motivo o mensaje). */
-export function MotivoModal({ open, onClose, claveForm, ...props }: MotivoModalProps) {
-  return (
-    <Modal open={open} onClose={props.enviando ? () => {} : onClose} size="sm" title={props.title} description={props.description}>
-      {open && <MotivoForm key={claveForm} onClose={onClose} {...props} />}
-    </Modal>
-  );
-}
-
-function MotivoForm({
-  onClose,
-  etiquetaBoton,
-  icono,
-  enviando,
-  onEnviar,
-  etiquetaCampo = "Motivo",
-  hint,
-  varianteBoton = "danger",
-  etiquetaVolver = "Volver",
-  aviso,
-  deshabilitado = false,
-}: Omit<MotivoModalProps, "open" | "claveForm" | "title" | "description">) {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<MotivoValues>({ resolver: zodResolver(motivoSchema), defaultValues: { motivo: "" } });
-
-  return (
-    <form noValidate onSubmit={handleSubmit((v) => onEnviar(v.motivo))} className="flex flex-col gap-4">
-      {aviso}
-      <FormField label={etiquetaCampo} required error={errors.motivo?.message} hint={hint}>
-        {(a11y) => <Textarea {...a11y} rows={3} {...register("motivo")} />}
-      </FormField>
-      <div className="-mx-6 -mb-5 flex flex-wrap justify-end gap-2.5 bg-superficie px-6 py-3.5">
-        <Button variant="secondary" onClick={onClose} disabled={enviando}>
-          {etiquetaVolver}
-        </Button>
-        <Button type="submit" variant={varianteBoton} loading={enviando} disabled={deshabilitado} icon={icono}>
-          {etiquetaBoton}
-        </Button>
-      </div>
-    </form>
-  );
-}
 
 export function RechazarSolicitudModal({
   solicitud,
