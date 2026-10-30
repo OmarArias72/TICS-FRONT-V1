@@ -13,11 +13,10 @@ src/
   app/
     layout.tsx                 Raíz (Server): html, fuentes, <Providers>, NavBar, Footer
     not-found.tsx              404
-    (public)/                  Rutas sin sesión
-      page.tsx                 /
-      login/page.tsx           /login
-      registro/page.tsx        /registro
-      unauthorized/page.tsx    /unauthorized
+    page.tsx                   /  (rutas públicas directamente en app/: no comparten layout propio)
+    login/page.tsx             /login
+    registro/page.tsx          /registro
+    unauthorized/page.tsx      /unauthorized
     (protected)/
       layout.tsx               Guard de sesión y rol (Client)
       aulas/page.tsx
@@ -44,7 +43,7 @@ src/
   types/api/*.ts               Contratos tomados de los DTO del backend
 ```
 
-Los grupos `(public)` y `(protected)` no aparecen en la URL: solo agrupan rutas que comparten layout.
+El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten el guard de sesión.
 
 ## 2. Tabla de migración
 
@@ -53,9 +52,9 @@ Los grupos `(public)` y `(protected)` no aparecen en la URL: solo agrupan rutas 
 | Elemento de origen | Ubicación actual | Tratamiento | Destino en Next.js | Estado |
 |---|---|---|---|---|
 | index.html | `index.html` | A: metadata del layout | `app/layout.tsx` | Hecho |
-| Punto de entrada | `src/main.jsx` | A: QueryClient en un Client Component | `components/providers/Providers.tsx` | Pendiente |
-| App + BrowserRouter | `src/App.jsx` | A: estructura en el layout raíz; Toaster en Providers | `app/layout.tsx` | Pendiente |
-| Rutas | `src/routes/AppRoutes.jsx` | C: carpetas de App Router | `app/(public)`, `app/(protected)` | Pendiente |
+| Punto de entrada | `src/main.jsx` | A: QueryClient en un Client Component | `components/providers/Providers.tsx` | Hecho |
+| App + BrowserRouter | `src/App.jsx` | A: estructura en el layout raíz; Toaster en Providers | `app/layout.tsx` | Hecho |
+| Rutas | `src/routes/AppRoutes.jsx` | C: carpetas de App Router (módulos con marcador temporal) | `app/`, `app/(protected)` | Hecho |
 | Proxy `/api` | `vite.config.js` | A: `rewrites` | `next.config.ts` | Hecho |
 | Variable `VITE_API_BASE_URL` | `src/api/axios.js` | A: `BACKEND_URL` solo en servidor | `.env.local` | Hecho |
 | Lint | `.oxlintrc.json` | Sustituido por ESLint de Next | `eslint.config.mjs` | Hecho |
@@ -89,34 +88,34 @@ Los grupos `(public)` y `(protected)` no aparecen en la URL: solo agrupan rutas 
 
 | Elemento de origen | Ubicación actual | Tratamiento | Destino en Next.js | Estado |
 |---|---|---|---|---|
-| authStore | `src/store/authStore.js` | A: `persist` de Zustand con hidratación en cliente (hoy lee `localStorage` al importar) | `store/authStore.ts` | Pendiente |
-| ProtectedRoute | `src/features/auth/ProtectedRoute.jsx` | C: layout protegido + mapa de permisos | `app/(protected)/layout.tsx`, `lib/auth/roles.ts` | Pendiente |
-| Constantes de roles | `AppRoutes.jsx`, `NavBar.jsx` (duplicadas y en desacuerdo) | C: fuente única | `lib/auth/roles.ts` | Pendiente |
+| authStore | `src/store/authStore.js` | A: `persist` de Zustand con `skipHydration`; clave `tic-auth` | `store/authStore.ts` | Hecho |
+| ProtectedRoute | `src/features/auth/ProtectedRoute.jsx` | C: layout protegido + `AuthGuard` | `app/(protected)/layout.tsx`, `features/auth/AuthGuard.tsx` | Hecho |
+| Constantes de roles | `AppRoutes.jsx`, `NavBar.jsx` (duplicadas y en desacuerdo) | C: fuente única | `lib/auth/roles.ts` | Hecho |
 | computerStore | `src/features/classroom-map/store/computerStore.js` | Se descarta: no se usa y llama a endpoints que no existen | — | — |
 
 ### Layout y páginas generales
 
 | Elemento de origen | Ubicación actual | Tratamiento | Destino en Next.js | Estado |
 |---|---|---|---|---|
-| NavBar | `src/components/layout/NavBar.jsx` | A: Client; `next/link`, `useRouter`; iconos lucide; ruta activa con `usePathname` | `components/layout/NavBar.tsx` | Pendiente |
-| Footer | `src/components/layout/Footer.jsx` | R: Server Component | `components/layout/Footer.tsx` | Pendiente |
-| LandingPage | `src/pages/LandingPage.jsx` | A: usa authStore, Client | `app/(public)/page.tsx` | Pendiente |
-| NotFoundPage | `src/pages/NotFoundPage.jsx` | A | `app/not-found.tsx` | Pendiente |
-| UnauthorizedPage | `src/pages/UnauthorizedPage.jsx` | A | `app/(public)/unauthorized/page.tsx` | Pendiente |
+| NavBar | `src/components/layout/NavBar.jsx` | A: Client; `next/link`; iconos lucide; ruta activa con `usePathname`; cierre con Escape | `components/layout/NavBar.tsx` | Hecho |
+| Footer | `src/components/layout/Footer.jsx` | R: Server Component | `components/layout/Footer.tsx` | Hecho |
+| LandingPage | `src/pages/LandingPage.jsx` | A: Server + `LandingSessionActions` (Client); corrige `user.name` por `user.nombre` | `app/page.tsx` | Hecho |
+| NotFoundPage | `src/pages/NotFoundPage.jsx` | A | `app/not-found.tsx` | Hecho |
+| UnauthorizedPage | `src/pages/UnauthorizedPage.jsx` | A: Server + `UnauthorizedActions` (Client) | `app/unauthorized/page.tsx` | Hecho |
 
 ### Módulos funcionales
 
 | Elemento de origen | Ubicación actual | Tratamiento | Destino en Next.js | Estado |
 |---|---|---|---|---|
-| LoginPage | `features/auth/LoginPage.jsx` | A: `useRouter`; volver a la ruta de origen con `?next=` | `app/(public)/login/page.tsx` + `features/auth/LoginForm.tsx` | Pendiente |
-| RegistroUsuarioPage | `features/users/pages/RegistroUsuarioPage.jsx` | A: conectar a `POST /usuarios/registro` (hoy solo `console.log`) | `app/(public)/registro/page.tsx` + `features/users/RegistroForm.tsx` | Pendiente |
+| LoginPage | `features/auth/LoginPage.jsx` | A: `useRouter`; volver a la ruta de origen con `?next=` | `app/login/page.tsx` + `features/auth/LoginForm.tsx` | Hecho |
+| RegistroUsuarioPage | `features/users/pages/RegistroUsuarioPage.jsx` | A: conectado a `POST /usuarios/registro`; sin selector de rol (el backend asigna Profesor) | `app/registro/page.tsx` + `features/users/RegistroForm.tsx` | Hecho |
 | Inventario (2 páginas, 7 componentes) | `features/inventory/**` | A: tipado, iconos, paleta | `features/inventory/**` + rutas | Pendiente |
 | Mapa de aulas (1 página, 5 componentes, 5 modales) | `features/classroom-map/**` | A: `<canvas>` en Client; framer-motion | `features/classroom-map/**` + `/aulas` | Pendiente |
 | Reservas (3 páginas, 2 componentes, 6 modales) | `features/salas/**` | A | `features/salas/**` + rutas | Pendiente |
 | Mesa de ayuda (2 páginas, 2 componentes, 3 modales) | `features/solicitudes-tecnicas/**` | A: corregir `cerrarSolicitud` | `features/solicitudes-tecnicas/**` + rutas | Pendiente |
 | Gestión de usuarios (1 página, 5 componentes) | `features/admin/users/**` | A | `features/admin/users/**` + `/admin/usuarios` | Pendiente |
 | AdminReservaSalasPage | `features/admin/pages/AdminReservaSalasPage.jsx` | R: envoltorio que pasa `idAdmin` | `app/(protected)/admin/reservas/page.tsx` | Pendiente |
-| AdminConfigAgendaPage | `features/admin/pages/AdminConfigAgendaPage.jsx` | A: interruptor local con aviso "Pendiente de backend" | `app/(protected)/admin/config-agenda/page.tsx` | Pendiente |
+| AdminConfigAgendaPage | `features/admin/pages/AdminConfigAgendaPage.jsx` | A: interruptor local con aviso "Pendiente de backend" | `app/(protected)/admin/config-agenda/page.tsx` + `features/admin/ConfigAgendaPanel.tsx` | Hecho |
 
 ## 3. Incompatibilidades Vite a Next.js
 
@@ -142,4 +141,6 @@ Los grupos `(public)` y `(protected)` no aparecen en la URL: solo agrupan rutas 
 
 ## 6. Cambios de comportamiento intencionales
 
+- Cerrar sesión recarga la página (`window.location`) para que Cache Components no conserve en memoria datos del usuario anterior.
+- El registro público ya no muestra selector de rol: el backend lo ignoraba y siempre asigna "Profesor".
 - Todos los servicios lanzan `ApiError` con el texto del backend. Antes, los métodos sin `try/catch` mostraban el genérico de Axios ("Request failed with status code 400").
