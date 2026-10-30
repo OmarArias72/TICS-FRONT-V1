@@ -90,7 +90,7 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 |---|---|---|---|---|
 | authStore | `src/store/authStore.js` | A: `persist` de Zustand con `skipHydration`; clave `tic-auth` | `store/authStore.ts` | Hecho |
 | ProtectedRoute | `src/features/auth/ProtectedRoute.jsx` | C: layout protegido + `AuthGuard` | `app/(protected)/layout.tsx`, `features/auth/AuthGuard.tsx` | Hecho |
-| Constantes de roles | `AppRoutes.jsx`, `NavBar.jsx` (duplicadas y en desacuerdo) | C: fuente única | `lib/auth/roles.ts` | Hecho |
+| Constantes de roles | `AppRoutes.jsx`, `NavBar.jsx` (duplicadas y en desacuerdo) | C: fuente única de rutas y permisos por acción | `lib/auth/roles.ts`, `lib/auth/permisos.ts`, `features/auth/usePermiso.ts` | Hecho |
 | computerStore | `src/features/classroom-map/store/computerStore.js` | Se descarta: no se usa y llama a endpoints que no existen | — | — |
 
 ### Layout y páginas generales
@@ -127,8 +127,28 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 
 ## 4. Decisiones tomadas
 
-1. **Permisos de Operador** (2026-10-30): `/admin/reservas` y `/admin/config-agenda` son solo de Admin, como en las rutas originales. El NavBar deja de mostrarle esas opciones a Operador-tics.
-2. **Configuración de agenda** (2026-10-30): se migra la pantalla con un aviso visible de "Pendiente de backend", porque no existe endpoint para persistir el estado.
+1. **Configuración de agenda** (2026-10-30): se migra la pantalla con un aviso visible de "Pendiente de backend", porque no existe endpoint para persistir el estado.
+2. **Matriz de permisos por acción** (2026-10-30, reemplaza la decisión anterior sobre Operador): definida en `src/lib/auth/permisos.ts`. Las rutas (`roles.ts`), el menú y los botones de cada pantalla consultan la misma tabla.
+
+| Ventana / acción | Admin | Operador-tics | Profesor | Estudiante |
+|---|:-:|:-:|:-:|:-:|
+| Salas: ver | Sí | Sí | — | — |
+| Salas: crear / editar / borrar | Sí | — | — | — |
+| Equipos de cómputo: ver / crear / editar / borrar, ver contraseñas | Sí | Sí | — | — |
+| Inventario: ver / crear / editar | Sí | Sí | — | — |
+| Inventario: borrar, dar de BAJA | Sí | — | — | — |
+| Inventario: estado masivo a ALTA / MANTENIMIENTO | Sí | Sí | — | — |
+| Conteos y reportes | Sí | Sí | — | — |
+| Control de Reservas | Sí | Sí | — | — |
+| Apertura / Cierre de Agenda | Sí | — | — | — |
+| Gestión de Usuarios | Sí | — | — | — |
+| Panel Mesa de Ayuda (atender tickets) | Sí | Sí | — | — |
+| Reservar sala y mis solicitudes | Sí (opcional) | — | Sí | — |
+| Crear y ver mis tickets | — | — | Sí | Sí |
+
+3. **Página tras el login** (2026-10-30): la sección principal de cada rol (`INICIO_POR_ROL`): Admin a Control de Reservas, Operador a Inventario, Profesor a Reserva de Salas, Estudiante a Mesa de Ayuda. Si `?next=` apunta a una ruta que el rol no tiene permitida, se usa su sección principal.
+4. **Menú**: se mantiene el menú lateral de hamburguesa a la izquierda, con solo las opciones permitidas para el rol.
+5. **Diseño** (2026-10-30): prototipo visual antes de programar las pantallas de cada módulo.
 
 ## 5. Riesgos conocidos (sin cambios en el backend)
 
@@ -141,6 +161,7 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 
 ## 6. Cambios de comportamiento intencionales
 
+- Profesor y Estudiante ya no acceden al Mapa de Aulas (antes podían editar equipos y ver sus contraseñas). Admin deja de tener "Mis tickets"; Operador gana Control de Reservas.
 - Cerrar sesión recarga la página (`window.location`) para que Cache Components no conserve en memoria datos del usuario anterior.
 - El registro público ya no muestra selector de rol: el backend lo ignoraba y siempre asigna "Profesor".
 - Todos los servicios lanzan `ApiError` con el texto del backend. Antes, los métodos sin `try/catch` mostraban el genérico de Axios ("Request failed with status code 400").

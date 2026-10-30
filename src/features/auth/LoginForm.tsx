@@ -7,14 +7,14 @@ import { LoaderCircle, LogIn } from "lucide-react";
 import { toast } from "react-hot-toast";
 
 import { cardClass, inputClass, labelClass, primaryButtonClass } from "@/components/ui/styles";
-import { destinoSeguro } from "@/lib/auth/roles";
+import { destinoTrasLogin } from "@/lib/auth/roles";
 import { useAuthStore } from "@/store/authStore";
 
 /**
  * Formulario de inicio de sesión (antes LoginPage.jsx).
  *
- * Tras un login correcto vuelve a la ruta que pidió el guard (`?next=`), o a
- * /aulas como en el original.
+ * Tras un login correcto vuelve a la ruta que pidió el guard (`?next=`) si el
+ * rol puede verla; si no, va a la sección principal del rol.
  */
 export function LoginForm() {
   const [email, setEmail] = useState("");
@@ -39,7 +39,7 @@ export function LoginForm() {
 
     if (result.success) {
       toast.success("¡Bienvenido al sistema!", { duration: 3000 });
-      router.replace(destinoSeguro(searchParams.get("next")));
+      router.replace(destinoTrasLogin(searchParams.get("next"), result.user.nombreRol));
     } else {
       toast.error(result.message || "Credenciales incorrectas", { duration: 4000 });
     }

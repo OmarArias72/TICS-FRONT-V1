@@ -1,13 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, LogIn, MapPinned, UserPlus } from "lucide-react";
+import { ArrowRight, LogIn, UserPlus } from "lucide-react";
 
 import { primaryButtonClass, secondaryButtonClass } from "@/components/ui/styles";
+import { INICIO_POR_ROL, enlacesDeMenu } from "@/lib/auth/roles";
 import { useAuthStore } from "@/store/authStore";
 
 /**
  * Acciones de la portada que dependen de la sesión.
+ *
+ * Con sesión muestra un acceso a la sección principal del rol y a sus demás
+ * secciones, tomadas de la misma tabla que el menú. Antes mostraba "Mapa de
+ * Aulas" y "Reservar Sala" a todos, aunque algunos roles no podían entrar.
  *
  * Corrección respecto al original: el saludo usaba `user.name`, campo que el
  * backend no envía (UsuarioResponseDTO usa `nombre`), y aparecía vacío.
@@ -39,25 +44,39 @@ export function LandingSessionActions() {
     );
   }
 
+  const inicio = INICIO_POR_ROL[user.nombreRol];
+  const secciones = [
+    ...enlacesDeMenu(user.nombreRol, "principal"),
+    ...enlacesDeMenu(user.nombreRol, "admin"),
+  ];
+  const principal = secciones.find((s) => s.href === inicio);
+  const otras = secciones.filter((s) => s.href !== inicio);
+
   return (
     <div className="mx-auto max-w-md space-y-4 rounded-2xl border border-variante bg-white p-6 shadow-lg shadow-verde-oscuro/5">
       <p className="text-xs font-bold uppercase tracking-wider text-outline">Sesión Iniciada</p>
       <p className="text-lg font-bold text-sobre-superficie">
         Bienvenido(a), <span className="text-verde">{user.nombre}</span>
       </p>
-      <div className="flex gap-3 pt-2">
-        <Link href="/aulas" className={`${primaryButtonClass} flex-1 px-4 py-3`}>
-          <MapPinned className="h-4 w-4" aria-hidden="true" />
-          Ver Mapa de Aulas
-        </Link>
-        <Link
-          href="/reservas"
-          className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-verde-oscuro px-4 py-3 text-sm font-bold text-superficie transition-colors hover:bg-verde"
-        >
-          <CalendarDays className="h-4 w-4" aria-hidden="true" />
-          Reservar Sala
-        </Link>
-      </div>
+
+      <Link href={inicio} className={`${primaryButtonClass} w-full`}>
+        Ir a {principal?.label ?? "mi sección"}
+        <ArrowRight className="h-4 w-4" aria-hidden="true" />
+      </Link>
+
+      {otras.length > 0 && (
+        <div className="flex flex-wrap justify-center gap-2 pt-1">
+          {otras.map((s) => (
+            <Link
+              key={s.href}
+              href={s.href}
+              className="rounded-full border border-variante bg-superficie px-3 py-1 text-xs font-semibold text-sobre-variante transition-colors hover:border-verde hover:text-verde"
+            >
+              {s.label}
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
