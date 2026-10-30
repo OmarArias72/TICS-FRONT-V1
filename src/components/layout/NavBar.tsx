@@ -81,6 +81,19 @@ export function NavBar() {
               <Logo />
             </div>
 
+            {hasHydrated && user && (
+              <div className="hidden items-center gap-2.5 text-sm sm:flex">
+                <span className="text-verde-claro">{nombreCompleto}</span>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-extrabold uppercase ${
+                    rol === "Admin" ? "bg-dorado text-dorado-oscuro" : "bg-verde-claro text-verde-oscuro"
+                  }`}
+                >
+                  {rol}
+                </span>
+              </div>
+            )}
+
             {hasHydrated && !user && (
               <div className="flex items-center gap-3">
                 <Link
