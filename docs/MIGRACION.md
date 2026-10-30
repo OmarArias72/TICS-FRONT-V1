@@ -113,10 +113,10 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 | RegistroUsuarioPage | `features/users/pages/RegistroUsuarioPage.jsx` | A: conectado a `POST /usuarios/registro`; sin selector de rol (el backend asigna Profesor) | `app/registro/page.tsx` + `features/users/RegistroForm.tsx` | Hecho |
 | Inventario (2 páginas, 7 componentes) | `features/inventory/**` | A: pestañas Equipos/Conteos, búsqueda con espera, reporte en modal, permisos por acción; corrige marca/modelo | `features/inventory/**` + `/inventario`, `/inventario/conteo` | Hecho |
 | Mapa de aulas (1 página, 5 componentes, 5 modales) | `features/classroom-map/**` | A: `<canvas>` en Client; framer-motion | `features/classroom-map/**` + `/aulas` | Pendiente |
-| Reservas (3 páginas, 2 componentes, 6 modales) | `features/salas/**` | A | `features/salas/**` + rutas | Pendiente |
+| Reservas (3 páginas, 2 componentes, 6 modales) | `features/salas/**` | A: reglas de reserva en `reglas.ts`, reserva directa o solicitud en un solo modal, control de reservas con aprobar / rechazar / reasignar / cancelar | `features/reservas/**` + `/reservas`, `/reservas/mis-solicitudes`, `/admin/reservas` | Hecho |
 | Mesa de ayuda (2 páginas, 2 componentes, 3 modales) | `features/solicitudes-tecnicas/**` | A: corregir `cerrarSolicitud` | `features/solicitudes-tecnicas/**` + rutas | Pendiente |
 | Gestión de usuarios (1 página, 5 componentes) | `features/admin/users/**` | A: react-hook-form + zod; corrige el rol que se perdía al editar; protege la cuenta propia; reglas de contraseña | `features/admin/users/**` + `/admin/usuarios` | Hecho |
-| AdminReservaSalasPage | `features/admin/pages/AdminReservaSalasPage.jsx` | R: envoltorio que pasa `idAdmin` | `app/(protected)/admin/reservas/page.tsx` | Pendiente |
+| AdminReservaSalasPage | `features/admin/pages/AdminReservaSalasPage.jsx` | R: el `idAdmin` sale de la sesión dentro de `ControlReservasPage` | `app/(protected)/admin/reservas/page.tsx` | Hecho |
 | AdminConfigAgendaPage | `features/admin/pages/AdminConfigAgendaPage.jsx` | A: interruptor local con aviso "Pendiente de backend" | `app/(protected)/admin/config-agenda/page.tsx` + `features/admin/ConfigAgendaPanel.tsx` | Hecho |
 
 ## 3. Incompatibilidades Vite a Next.js
@@ -155,7 +155,9 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 7. **Formularios** (2026-10-30): react-hook-form + zod; se instalan con el primer módulo que los usa (Gestión de Usuarios).
 8. **Gestión de Usuarios** (2026-10-30): el Admin no puede eliminarse, desactivarse ni cambiar su propio rol; al editar hay un campo opcional "Nueva contraseña" (vacío conserva la actual); las contraseñas nuevas, también en el registro público, deben tener 8 a 64 caracteres, mayúscula, minúscula, número y sin espacios (`lib/validation/password.ts`). El backend no valida estas reglas.
 9. **Inventario** (2026-10-30): búsqueda en el backend mientras se escribe (300 ms, conserva el selector de tipo); reporte PDF/CSV en un modal con fechas, artículo y formato; Conteos como pestaña con su propia URL; el Operador puede corregir datos de un equipo en BAJA pero no cambiar su estado, ni seleccionarlo para el cambio masivo.
-10. **Pruebas automáticas y CI** (2026-10-30): ninguna por ahora; se valida con `pnpm lint`, `pnpm build` y pruebas manuales por rol.
+10. **Reservas** (2026-10-30): horario y duración libres (solo fin posterior al inicio); reserva directa desde hoy hasta 30 días (`MAX_DIAS_ANTICIPACION`), nunca en el pasado; si el horario se empalma o supera los 30 días, el mismo modal ofrece una solicitud extraordinaria con justificación obligatoria. Si el backend rechaza una reserva directa, el modal pasa a modo solicitud con su mensaje. En Control de Reservas, rechazar y cancelar exigen motivo; aprobar y reasignar avisan de empalmes antes de enviar; una fecha pasada se muestra solo como consulta.
+11. **Cambios de reserva por la administración y notificaciones** (2026-10-30): el admin puede pedir al profesor, con un mensaje, que cambie su reserva de sala o fecha. Si el profesor acepta, él mismo la modifica desde "Mis reservas"; si no puede, responde con un motivo. El admin conserva la opción de reasignar directamente. El profesor puede cancelar su reserva y modificarla (con un cambio aceptado) solo hasta el día anterior; el mismo día, cualquier cambio lo hace TICS. Las reasignaciones, cancelaciones, aprobaciones, rechazos y solicitudes de cambio generan notificaciones que se ven en una campana en la barra superior. Todo esto depende de endpoints nuevos (sección 7); mientras no existan, las banderas de `lib/api/funcionesBackend.ts` están en `false` y las pantallas muestran "Pendiente de backend".
+12. **Pruebas automáticas y CI** (2026-10-30): ninguna por ahora; se valida con `pnpm lint`, `pnpm build` y pruebas manuales por rol.
 
 ## 5. Riesgos conocidos (sin cambios en el backend)
 
@@ -164,6 +166,9 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 - `GET /equipos-computo` devuelve la entidad JPA con `contrasena`, `passwordAdmin` y `lastPassword` en texto plano a cualquier cliente. La relación `sala` es LAZY y puede llegar nula o fallar al serializarse.
 - Las contraseñas de usuario se guardan sin cifrar (`setPasswordHash("Admin123!")` en DataSeeder).
 - `PUT /solicitudes-tecnicas/{id}/cerrar` exige el estado RESUELTO, pero `resolver-ticket` pasa directamente a CERRADA: la acción "Confirmar resolución" del alumno nunca puede completarse.
+- Los métodos `mapTo...DTO` de `ReservaSalasService` no llenan varios campos que declaran los DTO (en `UsoSala`: `fecha`, `idUsuario`, `motivoCancelacion`, `adminModifico`...; en `SolicitudReserva`: `motivoRechazo`, `adminAtendio`, `fechaSolicitud`...). Por eso el profesor no ve el motivo de un rechazo y la reasignación toma la fecha de la agenda consultada.
+- No existe un endpoint "mis reservas": el profesor solo ve sus reservas directas en la agenda de cada sala, y no puede cancelarlas él mismo (cancelar es solo `admin/cancelar`).
+- El backend solo valida fin posterior al inicio y el empalme; la anticipación máxima y las fechas pasadas se validan únicamente en el frontend.
 - `SolicitudTecnicaService` compara ids `Integer` con `!=` (compara referencias): para ids mayores a 127 puede negar permisos al dueño de la solicitud.
 
 ## 6. Cambios de comportamiento intencionales
@@ -171,6 +176,124 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 - Profesor y Estudiante ya no acceden al Mapa de Aulas (antes podían editar equipos y ver sus contraseñas). Admin deja de tener "Mis tickets"; Operador gana Control de Reservas.
 - Inventario: el original enviaba `marca` y `modelo`, que el backend ignora (espera `nombreMarca` y `nombreModelo`), por lo que todo equipo creado o editado desde la web quedaba como GENÉRICA / GENÉRICO; corregido. Dar de BAJA en lote pide confirmación; la selección masiva solo afecta a los equipos visibles.
 - Gestión de Usuarios: al editar ya no se cambia el rol a Profesor por error (el original leía `idRol`, que el backend no envía); se añade el rol Estudiante a filtros y formulario; eliminar y cambiar de estado usan confirmación y avisos del prototipo.
+- Reservas: "hoy" se calcula con la fecha local; el original usaba `toISOString()` (UTC) y, en México después de las 18:00, tomaba el día siguiente. La reserva directa y la solicitud extraordinaria comparten un solo modal que decide el modo según la agenda.
 - Cerrar sesión recarga la página (`window.location`) para que Cache Components no conserve en memoria datos del usuario anterior.
 - El registro público ya no muestra selector de rol: el backend lo ignoraba y siempre asigna "Profesor".
 - Todos los servicios lanzan `ApiError` con el texto del backend. Antes, los métodos sin `try/catch` mostraban el genérico de Axios ("Request failed with status code 400").
+
+## 7. Cambios requeridos en el backend (pendientes)
+
+Esta sección describe lo que `TICS-BACKEND` necesita para las funciones de la decisión 11. **No se ha modificado el backend**; queda para su refactorización. Cuando cada parte exista, se activa su bandera en `src/lib/api/funcionesBackend.ts`.
+
+| Bandera | Parte del backend | Pantallas que la usan |
+| --- | --- | --- |
+| `misReservas` | 7.3 (mis reservas, cancelar, modificar) | `/reservas/mis-reservas` |
+| `solicitudesCambio` | 7.1 + 7.3 (solicitudes de cambio) | Control de Reservas ("Pedir cambio"), Mis reservas |
+| `notificaciones` | 7.2 + 7.4 (notificaciones) | Campana en la barra superior |
+
+### 7.1 Base de datos (PostgreSQL, `db/init/01-schema.sql`)
+
+Hoy `spring.jpa.hibernate.ddl-auto=update` crearía las tablas a partir de las entidades, pero conviene agregarlas también al script de inicio para conservar los `CHECK` y los índices.
+
+```sql
+-- Solicitud del admin para que el profesor cambie su reserva.
+CREATE TABLE IF NOT EXISTS public.solicitudes_cambio_reserva (
+  id_solicitud_cambio integer GENERATED BY DEFAULT AS IDENTITY,
+  id_uso integer NOT NULL,
+  id_admin integer NOT NULL,
+  mensaje text NOT NULL,
+  estado character varying(20) NOT NULL DEFAULT 'Pendiente',
+  respuesta text,
+  fecha_creacion timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  fecha_respuesta timestamp without time zone,
+  CONSTRAINT solicitudes_cambio_reserva_pkey PRIMARY KEY (id_solicitud_cambio),
+  CONSTRAINT chk_solicitud_cambio_estado
+    CHECK (estado IN ('Pendiente', 'Aceptada', 'Rechazada', 'Aplicada', 'Expirada')),
+  CONSTRAINT solicitudes_cambio_id_uso_fkey FOREIGN KEY (id_uso) REFERENCES public.uso_salas(id_uso),
+  CONSTRAINT solicitudes_cambio_id_admin_fkey FOREIGN KEY (id_admin) REFERENCES public.usuarios(id_usuario)
+);
+
+-- Solo una solicitud de cambio vigente (Pendiente o Aceptada) por reserva.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_solicitud_cambio_vigente
+  ON public.solicitudes_cambio_reserva (id_uso)
+  WHERE estado IN ('Pendiente', 'Aceptada');
+
+-- Notificaciones dentro del sistema.
+CREATE TABLE IF NOT EXISTS public.notificaciones (
+  id_notificacion integer GENERATED BY DEFAULT AS IDENTITY,
+  id_usuario integer NOT NULL,
+  tipo character varying(30) NOT NULL,
+  titulo character varying(120) NOT NULL,
+  mensaje text NOT NULL,
+  enlace character varying(255),
+  leida boolean NOT NULL DEFAULT false,
+  fecha_creacion timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT notificaciones_pkey PRIMARY KEY (id_notificacion),
+  CONSTRAINT chk_notificacion_tipo CHECK (tipo IN (
+    'RESERVA_REASIGNADA', 'RESERVA_CANCELADA', 'SOLICITUD_APROBADA', 'SOLICITUD_RECHAZADA',
+    'CAMBIO_SOLICITADO', 'CAMBIO_RESPONDIDO', 'RESERVA_MODIFICADA'
+  )),
+  CONSTRAINT notificaciones_id_usuario_fkey FOREIGN KEY (id_usuario) REFERENCES public.usuarios(id_usuario)
+);
+
+CREATE INDEX IF NOT EXISTS ix_notificaciones_usuario
+  ON public.notificaciones (id_usuario, leida, fecha_creacion DESC);
+```
+
+`uso_salas` no necesita columnas nuevas: ya tiene `motivo_cancelacion` y `admin_modifico`. Cuando el profesor cancela su propia reserva, `admin_modifico` queda en `NULL`.
+
+### 7.2 Entidades y repositorios (paquetes `salas` y uno nuevo, `notificaciones`)
+
+- `SolicitudCambioReserva` (`@Table(name = "solicitudes_cambio_reserva")`): `@ManyToOne UsoSala uso`, `@ManyToOne Usuario admin`, `mensaje`, `estado`, `respuesta`, `fechaCreacion`, `fechaRespuesta`.
+- `SolicitudCambioReservaRepository`: `findFirstByUsoIdUsoAndEstadoIn(Integer idUso, List<String> estados)`.
+- `Notificacion` (`@Table(name = "notificaciones")`) y `NotificacionRepository`: `findByUsuarioIdUsuarioOrderByFechaCreacionDesc(Integer idUsuario, Pageable p)`, y una consulta `@Modifying` para marcar todas como leídas.
+- `UsoSalaRepository`: `findByUsuarioIdUsuarioAndFechaInicioGreaterThanEqualOrderByFechaInicio(Integer idUsuario, LocalDateTime desde)`.
+- `NotificacionService.crear(Usuario destino, String tipo, String titulo, String mensaje, String enlace)`, usado por `ReservaSalasService`.
+
+### 7.3 Endpoints de reservas (`/api/reservas-salas`)
+
+| Método y ruta | Cuerpo / parámetros | Respuesta | Reglas |
+| --- | --- | --- | --- |
+| `GET /mis-reservas?idUsuario=` | — | `MiReservaResponseDTO[]` | Reservas del usuario desde hoy (incluye canceladas recientes). Cada una con `fecha` y su `solicitudCambio` vigente o `null`. |
+| `PUT /mis-reservas/{idUso}/cancelar` | `{ idUsuario, motivoCancelacion }` | `UsoSalaResponseDTO` | Solo el dueño; estado distinto de `Cancelada`; **fecha de la reserva posterior a hoy**. Marca `Expirada` la solicitud de cambio vigente. Notifica al admin que la pidió, si hay. |
+| `PUT /mis-reservas/{idUso}/modificar` | `{ idUsuario, idSolicitudCambio, idSalaDestino, fecha, horaInicio, horaFin }` | `UsoSalaResponseDTO` | Solo el dueño; la solicitud debe ser de esa reserva y estar `Aceptada`; fecha original posterior a hoy; nueva fecha no pasada y a 30 días o menos; fin > inicio; sin empalme (excluyendo la propia reserva). Marca la solicitud como `Aplicada`. Notifica al admin (`RESERVA_MODIFICADA`). |
+| `POST /admin/solicitar-cambio` | `{ idUso, idAdmin, mensaje }` | `SolicitudCambioResponseDTO` | `idAdmin` con rol Admin u Operador-tics; reserva activa con fecha posterior a hoy; sin otra solicitud vigente. Notifica al profesor (`CAMBIO_SOLICITADO`, enlace `/reservas/mis-reservas`). |
+| `PUT /solicitudes-cambio/{id}/responder` | `{ idUsuario, acepta, respuesta? }` | `SolicitudCambioResponseDTO` | Solo el dueño de la reserva; estado `Pendiente`; fecha de la reserva posterior a hoy. `acepta=false` exige `respuesta`. Notifica al admin (`CAMBIO_RESPONDIDO`, enlace `/admin/reservas`). |
+
+Formato de las respuestas nuevas (coinciden con `src/types/api/reserva.ts`):
+
+```json
+// SolicitudCambioResponseDTO
+{ "idSolicitudCambio": 1, "idUso": 10, "admin": "Ana López", "mensaje": "...",
+  "estado": "Pendiente", "respuesta": null,
+  "fechaCreacion": "2026-10-30T10:00:00", "fechaRespuesta": null }
+
+// MiReservaResponseDTO = UsoSalaResponseDTO + fecha + solicitudCambio
+{ "idUso": 10, "idSala": 2, "codigoSala": "CC-02", "nombreSala": "Laboratorio de Redes",
+  "profesor": "Roberto Gómez", "fecha": "2026-11-04", "horaInicio": "09:00", "horaFin": "11:00",
+  "proposito": "Clase", "estado": "Confirmada", "fechaRegistro": "2026-10-29T12:00:00",
+  "solicitudCambio": null }
+```
+
+Cambios a endpoints existentes:
+
+- `PUT /admin/reasignar` y `PUT /admin/cancelar`: crear la notificación al profesor (`RESERVA_REASIGNADA` con sala, fecha y horario nuevos; `RESERVA_CANCELADA` con el motivo) y marcar `Expirada` la solicitud de cambio vigente.
+- `POST /admin/aprobar-solicitud` y `POST /admin/rechazar-solicitud`: notificar al solicitante (`SOLICITUD_APROBADA`, `SOLICITUD_RECHAZADA` con el motivo).
+- `mapToUsoSalaDTO` y `mapToSolicitudDTO`: llenar los campos que hoy faltan (sección 5), en especial `fecha`, `motivoCancelacion` y `motivoRechazo`.
+
+### 7.4 Endpoints de notificaciones (`/api/notificaciones`)
+
+| Método y ruta | Parámetros | Respuesta |
+| --- | --- | --- |
+| `GET /notificaciones?idUsuario=` | Últimas 30, más recientes primero | `NotificacionResponseDTO[]` (`idNotificacion, idUsuario, tipo, titulo, mensaje, enlace, leida, fechaCreacion`) |
+| `PUT /notificaciones/{id}/leida?idUsuario=` | Solo el dueño | `204` |
+| `PUT /notificaciones/leidas?idUsuario=` | Marca todas | `204` |
+
+El frontend consulta cada 60 segundos. Para avisos instantáneos, más adelante puede usarse WebSocket o Server-Sent Events.
+
+### 7.5 Reglas comunes
+
+- "Hoy" debe calcularse en la zona del campus: `LocalDate.now(ZoneId.of("America/Mexico_City"))`, no en la del servidor.
+- El límite del profesor se valida en el servidor: `uso.getFechaInicio().toLocalDate().isAfter(hoy)`. El frontend aplica la misma regla en `profesorPuedeCambiar` (`features/reservas/reglas.ts`), pero no es suficiente por sí sola.
+- Las comparaciones de ids deben usar `Objects.equals` (ver el riesgo de `Integer !=` en la sección 5).
+- Igual que el resto del backend, estos endpoints reciben `idUsuario`/`idAdmin` sin verificarlos. Con autenticación real (JWT o sesión), esos ids deben salir del usuario autenticado y no del cuerpo de la petición.
