@@ -26,12 +26,16 @@ export interface EquipoVista {
   estado: EstadoEquipo;
 }
 
-/** EquipoCreateRequest: alta completa (web) y edición por número de inventario. */
+/**
+ * EquipoCreateRequest: alta completa (web) y edición por número de inventario.
+ * Marca y modelo vacíos: al crear el backend usa "GENÉRICA" / "GENÉRICO";
+ * al editar conserva los actuales.
+ */
 export interface EquipoCreateRequest {
   inventario: string;
   nombreArticulo: string;
-  nombreMarca: string;
-  nombreModelo: string;
+  nombreMarca?: string | null;
+  nombreModelo?: string | null;
   serie?: string | null;
   cantidad?: number | null;
   caracteristicas?: string | null;

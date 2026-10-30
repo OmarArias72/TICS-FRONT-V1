@@ -1,6 +1,9 @@
-import { ModuloPendiente } from "@/components/ui/ModuloPendiente";
+import type { Metadata } from "next";
 
-// Temporal: se reemplaza al migrar features/inventory.
+import { InventoryPage } from "@/features/inventory/InventoryPage";
+
+export const metadata: Metadata = { title: "Inventario | Control TIC" };
+
 export default function InventarioPage() {
-  return <ModuloPendiente titulo="Inventario Total" />;
+  return <InventoryPage />;
 }

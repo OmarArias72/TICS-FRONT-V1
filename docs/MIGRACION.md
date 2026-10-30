@@ -111,7 +111,7 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 |---|---|---|---|---|
 | LoginPage | `features/auth/LoginPage.jsx` | A: `useRouter`; volver a la ruta de origen con `?next=` | `app/login/page.tsx` + `features/auth/LoginForm.tsx` | Hecho |
 | RegistroUsuarioPage | `features/users/pages/RegistroUsuarioPage.jsx` | A: conectado a `POST /usuarios/registro`; sin selector de rol (el backend asigna Profesor) | `app/registro/page.tsx` + `features/users/RegistroForm.tsx` | Hecho |
-| Inventario (2 páginas, 7 componentes) | `features/inventory/**` | A: tipado, iconos, paleta | `features/inventory/**` + rutas | Pendiente |
+| Inventario (2 páginas, 7 componentes) | `features/inventory/**` | A: pestañas Equipos/Conteos, búsqueda con espera, reporte en modal, permisos por acción; corrige marca/modelo | `features/inventory/**` + `/inventario`, `/inventario/conteo` | Hecho |
 | Mapa de aulas (1 página, 5 componentes, 5 modales) | `features/classroom-map/**` | A: `<canvas>` en Client; framer-motion | `features/classroom-map/**` + `/aulas` | Pendiente |
 | Reservas (3 páginas, 2 componentes, 6 modales) | `features/salas/**` | A | `features/salas/**` + rutas | Pendiente |
 | Mesa de ayuda (2 páginas, 2 componentes, 3 modales) | `features/solicitudes-tecnicas/**` | A: corregir `cerrarSolicitud` | `features/solicitudes-tecnicas/**` + rutas | Pendiente |
@@ -154,7 +154,8 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 6. **Orden de migración** (2026-10-30): de menor a mayor complejidad, una rama y un PR por módulo: Gestión de Usuarios, Inventario (+ conteos y reportes), Reservas (+ control de reservas), Mesa de Ayuda (alumno + panel), Mapa de Aulas.
 7. **Formularios** (2026-10-30): react-hook-form + zod; se instalan con el primer módulo que los usa (Gestión de Usuarios).
 8. **Gestión de Usuarios** (2026-10-30): el Admin no puede eliminarse, desactivarse ni cambiar su propio rol; al editar hay un campo opcional "Nueva contraseña" (vacío conserva la actual); las contraseñas nuevas, también en el registro público, deben tener 8 a 64 caracteres, mayúscula, minúscula, número y sin espacios (`lib/validation/password.ts`). El backend no valida estas reglas.
-9. **Pruebas automáticas y CI** (2026-10-30): ninguna por ahora; se valida con `pnpm lint`, `pnpm build` y pruebas manuales por rol.
+9. **Inventario** (2026-10-30): búsqueda en el backend mientras se escribe (300 ms, conserva el selector de tipo); reporte PDF/CSV en un modal con fechas, artículo y formato; Conteos como pestaña con su propia URL; el Operador puede corregir datos de un equipo en BAJA pero no cambiar su estado, ni seleccionarlo para el cambio masivo.
+10. **Pruebas automáticas y CI** (2026-10-30): ninguna por ahora; se valida con `pnpm lint`, `pnpm build` y pruebas manuales por rol.
 
 ## 5. Riesgos conocidos (sin cambios en el backend)
 
@@ -168,6 +169,7 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 ## 6. Cambios de comportamiento intencionales
 
 - Profesor y Estudiante ya no acceden al Mapa de Aulas (antes podían editar equipos y ver sus contraseñas). Admin deja de tener "Mis tickets"; Operador gana Control de Reservas.
+- Inventario: el original enviaba `marca` y `modelo`, que el backend ignora (espera `nombreMarca` y `nombreModelo`), por lo que todo equipo creado o editado desde la web quedaba como GENÉRICA / GENÉRICO; corregido. Dar de BAJA en lote pide confirmación; la selección masiva solo afecta a los equipos visibles.
 - Gestión de Usuarios: al editar ya no se cambia el rol a Profesor por error (el original leía `idRol`, que el backend no envía); se añade el rol Estudiante a filtros y formulario; eliminar y cambiar de estado usan confirmación y avisos del prototipo.
 - Cerrar sesión recarga la página (`window.location`) para que Cache Components no conserve en memoria datos del usuario anterior.
 - El registro público ya no muestra selector de rol: el backend lo ignoraba y siempre asigna "Profesor".
