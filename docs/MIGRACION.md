@@ -1,0 +1,145 @@
+# Plan de migración: TIC-CUUT (React + Vite) a Next.js 16 + TypeScript
+
+- Origen: `TICS-FRONT-END/TIC-UAEMEX-WEB/TIC-CUUT` (solo lectura).
+- Destino: `TICS-FRONT-NEXT/tic-cuut`.
+- Backend: `JAVA-BACK/TICS-BACKEND` (Spring Boot, puerto 8000, sin modificaciones).
+
+Clasificación: **R** = reutilizable · **A** = requiere adaptación · **C** = requiere reconstrucción · **P** = pendiente de información.
+
+## 1. Arquitectura destino
+
+```
+src/
+  app/
+    layout.tsx                 Raíz (Server): html, fuentes, <Providers>, NavBar, Footer
+    not-found.tsx              404
+    (public)/                  Rutas sin sesión
+      page.tsx                 /
+      login/page.tsx           /login
+      registro/page.tsx        /registro
+      unauthorized/page.tsx    /unauthorized
+    (protected)/
+      layout.tsx               Guard de sesión y rol (Client)
+      aulas/page.tsx
+      inventario/page.tsx
+      inventario/conteo/page.tsx
+      reservas/page.tsx
+      reservas/mis-solicitudes/page.tsx
+      solicitudes-tecnicas/page.tsx
+      admin/usuarios/page.tsx
+      admin/reservas/page.tsx
+      admin/config-agenda/page.tsx
+      admin/solicitudes-tecnicas/page.tsx
+  components/
+    layout/NavBar.tsx, Footer.tsx
+    providers/Providers.tsx    QueryClientProvider + Toaster
+    ui/                        Piezas compartidas (Modal, ConfirmDialog...) si se repiten
+  features/<modulo>/           Misma organización que el origen, en .tsx
+  lib/
+    api/client.ts              Instancia Axios central
+    api/errors.ts              Extracción uniforme del mensaje de error de Spring
+    api/services/*.ts          Servicios tipados
+    auth/roles.ts              Roles y mapa ruta -> roles (fuente única para guard y NavBar)
+  store/authStore.ts           Zustand con persistencia segura para SSR
+  types/api/*.ts               Contratos tomados de los DTO del backend
+```
+
+Los grupos `(public)` y `(protected)` no aparecen en la URL: solo agrupan rutas que comparten layout.
+
+## 2. Tabla de migración
+
+### Configuración y entrada
+
+| Elemento de origen | Ubicación actual | Tratamiento | Destino en Next.js | Estado |
+|---|---|---|---|---|
+| index.html | `index.html` | A: metadata del layout | `app/layout.tsx` | Hecho |
+| Punto de entrada | `src/main.jsx` | A: QueryClient en un Client Component | `components/providers/Providers.tsx` | Pendiente |
+| App + BrowserRouter | `src/App.jsx` | A: estructura en el layout raíz; Toaster en Providers | `app/layout.tsx` | Pendiente |
+| Rutas | `src/routes/AppRoutes.jsx` | C: carpetas de App Router | `app/(public)`, `app/(protected)` | Pendiente |
+| Proxy `/api` | `vite.config.js` | A: `rewrites` | `next.config.ts` | Hecho |
+| Variable `VITE_API_BASE_URL` | `src/api/axios.js` | A: `BACKEND_URL` solo en servidor | `.env.local` | Hecho |
+| Lint | `.oxlintrc.json` | Sustituido por ESLint de Next | `eslint.config.mjs` | Hecho |
+
+### Estilos y recursos
+
+| Elemento de origen | Ubicación actual | Tratamiento | Destino en Next.js | Estado |
+|---|---|---|---|---|
+| Estilos globales | `src/index.css` | C: nueva paleta en `@theme` | `app/globals.css` | Hecho |
+| Plantilla Vite | `src/App.css` | Se descarta (no se usa) | — | — |
+| Recursos de plantilla | `src/assets/*.svg`, `hero.png` | Se descartan (no se usan) | — | — |
+| Favicon | `public/favicon.svg` | R | `app/icon.svg` | Pendiente |
+| Emojis como iconos (69 líneas) | Varios componentes | A: lucide-react | En cada componente | Pendiente |
+| Colores fijos `#486AE6`, `#A65D8B`, `#7AD349`, `slate-*` | Todos los componentes | A: tokens de la paleta | En cada componente | Pendiente |
+
+### Comunicación con el backend
+
+| Elemento de origen | Ubicación actual | Tratamiento | Destino en Next.js | Estado |
+|---|---|---|---|---|
+| Cliente Axios | `src/api/axios.js` | A: tipado; se quita el interceptor de token (el backend no emite token) | `lib/api/client.ts` | Hecho |
+| Manejo de errores repetido | Todos los servicios | A: función común (`request` + `ApiError`) | `lib/api/errors.ts` | Hecho |
+| usuarioService | `src/api/services/usuarioService.js` | A: tipado + `login` (antes en el store) + `registrar` (`POST /usuarios/registro`) | `lib/api/services/usuarioService.ts` | Hecho |
+| salaService | `src/api/services/salaService.js` | A: tipado | `lib/api/services/salaService.ts` | Hecho |
+| equipoComputoService | `src/api/services/equipoComputoService.js` | A: tipado; se omite el alias sin uso `guardarODetalleTecnico` | `lib/api/services/equipoComputoService.ts` | Hecho |
+| inventoryService | `src/api/services/inventoryService.js` | A: tipado; descargas como `Blob` | `lib/api/services/inventoryService.ts` | Hecho |
+| reservaSalasService | `src/api/services/reservaSalasService.js` | A: tipado | `lib/api/services/reservaSalasService.ts` | Hecho |
+| solicitudTecnicaService | `src/api/services/solicitudTecnicaService.js` | A: tipado + `cerrarSolicitud` (`PUT /{id}/cerrar`) | `lib/api/services/solicitudTecnicaService.ts` | Hecho |
+| Contratos de datos | DTO y entidades de `TICS-BACKEND` | C: interfaces TypeScript | `types/api/*.ts` | Hecho |
+
+### Estado y autenticación
+
+| Elemento de origen | Ubicación actual | Tratamiento | Destino en Next.js | Estado |
+|---|---|---|---|---|
+| authStore | `src/store/authStore.js` | A: `persist` de Zustand con hidratación en cliente (hoy lee `localStorage` al importar) | `store/authStore.ts` | Pendiente |
+| ProtectedRoute | `src/features/auth/ProtectedRoute.jsx` | C: layout protegido + mapa de permisos | `app/(protected)/layout.tsx`, `lib/auth/roles.ts` | Pendiente |
+| Constantes de roles | `AppRoutes.jsx`, `NavBar.jsx` (duplicadas y en desacuerdo) | C: fuente única | `lib/auth/roles.ts` | Pendiente |
+| computerStore | `src/features/classroom-map/store/computerStore.js` | Se descarta: no se usa y llama a endpoints que no existen | — | — |
+
+### Layout y páginas generales
+
+| Elemento de origen | Ubicación actual | Tratamiento | Destino en Next.js | Estado |
+|---|---|---|---|---|
+| NavBar | `src/components/layout/NavBar.jsx` | A: Client; `next/link`, `useRouter`; iconos lucide; ruta activa con `usePathname` | `components/layout/NavBar.tsx` | Pendiente |
+| Footer | `src/components/layout/Footer.jsx` | R: Server Component | `components/layout/Footer.tsx` | Pendiente |
+| LandingPage | `src/pages/LandingPage.jsx` | A: usa authStore, Client | `app/(public)/page.tsx` | Pendiente |
+| NotFoundPage | `src/pages/NotFoundPage.jsx` | A | `app/not-found.tsx` | Pendiente |
+| UnauthorizedPage | `src/pages/UnauthorizedPage.jsx` | A | `app/(public)/unauthorized/page.tsx` | Pendiente |
+
+### Módulos funcionales
+
+| Elemento de origen | Ubicación actual | Tratamiento | Destino en Next.js | Estado |
+|---|---|---|---|---|
+| LoginPage | `features/auth/LoginPage.jsx` | A: `useRouter`; volver a la ruta de origen con `?next=` | `app/(public)/login/page.tsx` + `features/auth/LoginForm.tsx` | Pendiente |
+| RegistroUsuarioPage | `features/users/pages/RegistroUsuarioPage.jsx` | A: conectar a `POST /usuarios/registro` (hoy solo `console.log`) | `app/(public)/registro/page.tsx` + `features/users/RegistroForm.tsx` | Pendiente |
+| Inventario (2 páginas, 7 componentes) | `features/inventory/**` | A: tipado, iconos, paleta | `features/inventory/**` + rutas | Pendiente |
+| Mapa de aulas (1 página, 5 componentes, 5 modales) | `features/classroom-map/**` | A: `<canvas>` en Client; framer-motion | `features/classroom-map/**` + `/aulas` | Pendiente |
+| Reservas (3 páginas, 2 componentes, 6 modales) | `features/salas/**` | A | `features/salas/**` + rutas | Pendiente |
+| Mesa de ayuda (2 páginas, 2 componentes, 3 modales) | `features/solicitudes-tecnicas/**` | A: corregir `cerrarSolicitud` | `features/solicitudes-tecnicas/**` + rutas | Pendiente |
+| Gestión de usuarios (1 página, 5 componentes) | `features/admin/users/**` | A | `features/admin/users/**` + `/admin/usuarios` | Pendiente |
+| AdminReservaSalasPage | `features/admin/pages/AdminReservaSalasPage.jsx` | R: envoltorio que pasa `idAdmin` | `app/(protected)/admin/reservas/page.tsx` | Pendiente |
+| AdminConfigAgendaPage | `features/admin/pages/AdminConfigAgendaPage.jsx` | A: interruptor local con aviso "Pendiente de backend" | `app/(protected)/admin/config-agenda/page.tsx` | Pendiente |
+
+## 3. Incompatibilidades Vite a Next.js
+
+1. **Enrutamiento**: React Router (`<Routes>`, `<Navigate>`, `useNavigate`, `useLocation().state`) se reemplaza por carpetas, `next/link`, `useRouter` y `redirect`. El `state` de navegación no existe; la ruta de retorno del login pasa a `?next=`.
+2. **Renderizado en servidor**: Next.js prerenderiza también los Client Components. Todo acceso a `localStorage`, `window` o `document` debe ocurrir en efectos o manejadores, nunca al importar o renderizar.
+3. **Variables de entorno**: `import.meta.env.VITE_*` pasa a `process.env.NEXT_PUBLIC_*`. Aquí no hace falta ninguna pública porque el navegador usa `/api` en el mismo origen.
+4. **Cache Components y `<Activity>`**: al navegar, la página anterior se oculta en lugar de desmontarse. Modales y menús abiertos podrían conservar su estado al volver; hay que revisarlo en cada módulo.
+5. **Archivos**: `.jsx` pasa a `.tsx`; alias `@/` en lugar de rutas `../../..`.
+
+## 4. Decisiones tomadas
+
+1. **Permisos de Operador** (2026-10-30): `/admin/reservas` y `/admin/config-agenda` son solo de Admin, como en las rutas originales. El NavBar deja de mostrarle esas opciones a Operador-tics.
+2. **Configuración de agenda** (2026-10-30): se migra la pantalla con un aviso visible de "Pendiente de backend", porque no existe endpoint para persistir el estado.
+
+## 5. Riesgos conocidos (sin cambios en el backend)
+
+- La sesión vive en `localStorage` y el backend recibe `idUsuario`/`idAdmin` como parámetro sin verificarlo. La protección de rutas del frontend es solo de experiencia de usuario, no de seguridad. Queda para la refactorización del backend.
+- `CORS` del backend usa `allowedOriginPatterns("*")` con `allowCredentials(true)`. No afecta al frontend gracias al rewrite; queda anotado para el backend.
+- `GET /equipos-computo` devuelve la entidad JPA con `contrasena`, `passwordAdmin` y `lastPassword` en texto plano a cualquier cliente. La relación `sala` es LAZY y puede llegar nula o fallar al serializarse.
+- Las contraseñas de usuario se guardan sin cifrar (`setPasswordHash("Admin123!")` en DataSeeder).
+- `PUT /solicitudes-tecnicas/{id}/cerrar` exige el estado RESUELTO, pero `resolver-ticket` pasa directamente a CERRADA: la acción "Confirmar resolución" del alumno nunca puede completarse.
+- `SolicitudTecnicaService` compara ids `Integer` con `!=` (compara referencias): para ids mayores a 127 puede negar permisos al dueño de la solicitud.
+
+## 6. Cambios de comportamiento intencionales
+
+- Todos los servicios lanzan `ApiError` con el texto del backend. Antes, los métodos sin `try/catch` mostraban el genérico de Axios ("Request failed with status code 400").
