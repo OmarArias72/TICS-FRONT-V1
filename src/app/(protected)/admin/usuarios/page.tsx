@@ -1,6 +1,9 @@
-import { ModuloPendiente } from "@/components/ui/ModuloPendiente";
+import type { Metadata } from "next";
 
-// Temporal: se reemplaza al migrar features/admin/users.
+import { UsersAdminPage } from "@/features/admin/users/UsersAdminPage";
+
+export const metadata: Metadata = { title: "Gestión de Usuarios | Control TIC" };
+
 export default function AdminUsuariosPage() {
-  return <ModuloPendiente titulo="Gestión de Usuarios" />;
+  return <UsersAdminPage />;
 }

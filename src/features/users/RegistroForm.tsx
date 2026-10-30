@@ -7,8 +7,10 @@ import { useMutation } from "@tanstack/react-query";
 import { LoaderCircle, UserPlus } from "lucide-react";
 import { toast } from "react-hot-toast";
 
+import { PasswordChecklist } from "@/components/ui/PasswordChecklist";
 import { cardClass, inputClass, labelClass, primaryButtonClass } from "@/components/ui/styles";
 import { usuarioService } from "@/lib/api/services";
+import { validarPassword } from "@/lib/validation/password";
 import type { UsuarioRegistroRequest } from "@/types/api";
 
 const FORMULARIO_VACIO: UsuarioRegistroRequest = {
@@ -25,6 +27,7 @@ const FORMULARIO_VACIO: UsuarioRegistroRequest = {
  * - Ahora llama a POST /usuarios/registro; antes solo hacía console.log.
  * - Se quitó el selector de rol: el backend lo ignora y asigna siempre el rol
  *   "Profesor". Los demás roles se asignan desde Gestión de Usuarios.
+ * - La contraseña debe cumplir las mismas reglas que en Gestión de Usuarios.
  */
 export function RegistroForm() {
   const [formData, setFormData] = useState<UsuarioRegistroRequest>(FORMULARIO_VACIO);
@@ -44,8 +47,14 @@ export function RegistroForm() {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  const errorPassword = validarPassword(formData.password);
+
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (errorPassword) {
+      toast.error(errorPassword);
+      return;
+    }
     registro.mutate({
       ...formData,
       nombre: formData.nombre.trim(),
@@ -125,8 +134,13 @@ export function RegistroForm() {
             required
             value={formData.password}
             onChange={handleChange}
+            aria-describedby="registro-password-reglas"
+            aria-invalid={formData.password !== "" && errorPassword !== null}
             className={inputClass}
           />
+          <div className="mt-2">
+            <PasswordChecklist id="registro-password-reglas" value={formData.password} />
+          </div>
         </div>
 
         <p className="rounded-xl bg-variante/60 px-3 py-2 text-xs text-sobre-variante">

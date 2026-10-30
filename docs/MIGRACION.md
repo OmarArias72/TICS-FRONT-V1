@@ -115,7 +115,7 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 | Mapa de aulas (1 página, 5 componentes, 5 modales) | `features/classroom-map/**` | A: `<canvas>` en Client; framer-motion | `features/classroom-map/**` + `/aulas` | Pendiente |
 | Reservas (3 páginas, 2 componentes, 6 modales) | `features/salas/**` | A | `features/salas/**` + rutas | Pendiente |
 | Mesa de ayuda (2 páginas, 2 componentes, 3 modales) | `features/solicitudes-tecnicas/**` | A: corregir `cerrarSolicitud` | `features/solicitudes-tecnicas/**` + rutas | Pendiente |
-| Gestión de usuarios (1 página, 5 componentes) | `features/admin/users/**` | A | `features/admin/users/**` + `/admin/usuarios` | Pendiente |
+| Gestión de usuarios (1 página, 5 componentes) | `features/admin/users/**` | A: react-hook-form + zod; corrige el rol que se perdía al editar; protege la cuenta propia; reglas de contraseña | `features/admin/users/**` + `/admin/usuarios` | Hecho |
 | AdminReservaSalasPage | `features/admin/pages/AdminReservaSalasPage.jsx` | R: envoltorio que pasa `idAdmin` | `app/(protected)/admin/reservas/page.tsx` | Pendiente |
 | AdminConfigAgendaPage | `features/admin/pages/AdminConfigAgendaPage.jsx` | A: interruptor local con aviso "Pendiente de backend" | `app/(protected)/admin/config-agenda/page.tsx` + `features/admin/ConfigAgendaPanel.tsx` | Hecho |
 
@@ -153,7 +153,8 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 5. **Diseño** (2026-10-30): prototipo visual aprobado (lienzo "Prototipo Control TIC"); sus componentes se implementan en `components/ui` antes de migrar los módulos.
 6. **Orden de migración** (2026-10-30): de menor a mayor complejidad, una rama y un PR por módulo: Gestión de Usuarios, Inventario (+ conteos y reportes), Reservas (+ control de reservas), Mesa de Ayuda (alumno + panel), Mapa de Aulas.
 7. **Formularios** (2026-10-30): react-hook-form + zod; se instalan con el primer módulo que los usa (Gestión de Usuarios).
-8. **Pruebas automáticas y CI** (2026-10-30): ninguna por ahora; se valida con `pnpm lint`, `pnpm build` y pruebas manuales por rol.
+8. **Gestión de Usuarios** (2026-10-30): el Admin no puede eliminarse, desactivarse ni cambiar su propio rol; al editar hay un campo opcional "Nueva contraseña" (vacío conserva la actual); las contraseñas nuevas, también en el registro público, deben tener 8 a 64 caracteres, mayúscula, minúscula, número y sin espacios (`lib/validation/password.ts`). El backend no valida estas reglas.
+9. **Pruebas automáticas y CI** (2026-10-30): ninguna por ahora; se valida con `pnpm lint`, `pnpm build` y pruebas manuales por rol.
 
 ## 5. Riesgos conocidos (sin cambios en el backend)
 
@@ -167,6 +168,7 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 ## 6. Cambios de comportamiento intencionales
 
 - Profesor y Estudiante ya no acceden al Mapa de Aulas (antes podían editar equipos y ver sus contraseñas). Admin deja de tener "Mis tickets"; Operador gana Control de Reservas.
+- Gestión de Usuarios: al editar ya no se cambia el rol a Profesor por error (el original leía `idRol`, que el backend no envía); se añade el rol Estudiante a filtros y formulario; eliminar y cambiar de estado usan confirmación y avisos del prototipo.
 - Cerrar sesión recarga la página (`window.location`) para que Cache Components no conserve en memoria datos del usuario anterior.
 - El registro público ya no muestra selector de rol: el backend lo ignoraba y siempre asigna "Profesor".
 - Todos los servicios lanzan `ApiError` con el texto del backend. Antes, los métodos sin `try/catch` mostraban el genérico de Axios ("Request failed with status code 400").
