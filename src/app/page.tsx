@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
+
 import { LandingSessionActions } from "@/features/landing/LandingSessionActions";
+
+export const metadata: Metadata = {
+  title: "Control TIC | Centro Universitario UAEM Tianguistenco",
+  description:
+    "Plataforma del Centro Universitario UAEM Tianguistenco para la reserva de salas, el inventario de equipos y la mesa de ayuda TIC.",
+};
 
 /** Portada (antes LandingPage.jsx). El texto se renderiza en el servidor. */
 export default function LandingPage() {
@@ -15,9 +23,12 @@ export default function LandingPage() {
       />
 
       <div className="z-10 my-auto w-full max-w-3xl text-center">
-        <span className="mb-6 inline-block rounded-full border border-verde/20 bg-verde-claro/60 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-verde-oscuro sm:text-sm">
-          Universidad Autónoma del Estado de México
+        <span className="mb-3 inline-block rounded-full border border-verde/20 bg-verde-claro/60 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-verde-oscuro sm:text-sm">
+          Centro Universitario UAEM Tianguistenco
         </span>
+        <p className="mb-6 text-sm font-medium text-dorado-texto">
+          Universidad Autónoma del Estado de México
+        </p>
 
         <h1 className="mb-6 text-4xl font-extrabold leading-tight tracking-tight text-sobre-superficie sm:text-6xl md:text-7xl">
           Gestión inteligente de <br className="hidden sm:inline" />
@@ -27,8 +38,8 @@ export default function LandingPage() {
         </h1>
 
         <p className="mx-auto mb-10 max-w-2xl text-base leading-relaxed text-sobre-variante sm:text-lg md:text-xl">
-          Plataforma centralizada para la reserva de salas, seguimiento de equipos e inventario
-          institucional.
+          Plataforma del Centro Universitario UAEM Tianguistenco para la reserva de salas, el
+          seguimiento de equipos y el inventario institucional.
         </p>
 
         <LandingSessionActions />
