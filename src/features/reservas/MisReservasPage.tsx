@@ -18,6 +18,7 @@ import {
   FormField,
   Input,
   Modal,
+  MotivoModal,
   PageContainer,
   PageHeader,
   PageLoader,
@@ -31,7 +32,7 @@ import { formatearDia, hoyISO } from "@/lib/fechas";
 import { useAuthStore } from "@/store/authStore";
 import type { MiReserva, Sala } from "@/types/api";
 
-import { MotivoModal } from "./AccionesReservaModals";
+
 import { clavesReservas } from "./claves";
 import { evaluarHorario, MENSAJE_LIMITE_PROFESOR, profesorPuedeCambiar } from "./reglas";
 

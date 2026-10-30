@@ -114,7 +114,7 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 | Inventario (2 páginas, 7 componentes) | `features/inventory/**` | A: pestañas Equipos/Conteos, búsqueda con espera, reporte en modal, permisos por acción; corrige marca/modelo | `features/inventory/**` + `/inventario`, `/inventario/conteo` | Hecho |
 | Mapa de aulas (1 página, 5 componentes, 5 modales) | `features/classroom-map/**` | A: `<canvas>` en Client; framer-motion | `features/classroom-map/**` + `/aulas` | Pendiente |
 | Reservas (3 páginas, 2 componentes, 6 modales) | `features/salas/**` | A: reglas de reserva en `reglas.ts`, reserva directa o solicitud en un solo modal, control de reservas con aprobar / rechazar / reasignar / cancelar | `features/reservas/**` + `/reservas`, `/reservas/mis-solicitudes`, `/admin/reservas` | Hecho |
-| Mesa de ayuda (2 páginas, 2 componentes, 3 modales) | `features/solicitudes-tecnicas/**` | A: corregir `cerrarSolicitud` | `features/solicitudes-tecnicas/**` + rutas | Pendiente |
+| Mesa de ayuda (2 páginas, 2 componentes, 3 modales) | `features/solicitudes-tecnicas/**` | A: tarjetas con progreso por pasos (prototipo); panel con bandejas, lista y detalle lateral; validaciones del formulario iguales al backend; cierre automático al resolver | `features/mesa-ayuda/**` + `/solicitudes-tecnicas`, `/admin/solicitudes-tecnicas` | Hecho |
 | Gestión de usuarios (1 página, 5 componentes) | `features/admin/users/**` | A: react-hook-form + zod; corrige el rol que se perdía al editar; protege la cuenta propia; reglas de contraseña | `features/admin/users/**` + `/admin/usuarios` | Hecho |
 | AdminReservaSalasPage | `features/admin/pages/AdminReservaSalasPage.jsx` | R: el `idAdmin` sale de la sesión dentro de `ControlReservasPage` | `app/(protected)/admin/reservas/page.tsx` | Hecho |
 | AdminConfigAgendaPage | `features/admin/pages/AdminConfigAgendaPage.jsx` | A: interruptor local con aviso "Pendiente de backend" | `app/(protected)/admin/config-agenda/page.tsx` + `features/admin/ConfigAgendaPanel.tsx` | Hecho |
@@ -157,7 +157,8 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 9. **Inventario** (2026-10-30): búsqueda en el backend mientras se escribe (300 ms, conserva el selector de tipo); reporte PDF/CSV en un modal con fechas, artículo y formato; Conteos como pestaña con su propia URL; el Operador puede corregir datos de un equipo en BAJA pero no cambiar su estado, ni seleccionarlo para el cambio masivo.
 10. **Reservas** (2026-10-30): horario y duración libres (solo fin posterior al inicio); reserva directa desde hoy hasta 30 días (`MAX_DIAS_ANTICIPACION`), nunca en el pasado; si el horario se empalma o supera los 30 días, el mismo modal ofrece una solicitud extraordinaria con justificación obligatoria. Si el backend rechaza una reserva directa, el modal pasa a modo solicitud con su mensaje. En Control de Reservas, rechazar y cancelar exigen motivo; aprobar y reasignar avisan de empalmes antes de enviar; una fecha pasada se muestra solo como consulta.
 11. **Cambios de reserva por la administración y notificaciones** (2026-10-30): el admin puede pedir al profesor, con un mensaje, que cambie su reserva de sala o fecha. Si el profesor acepta, él mismo la modifica desde "Mis reservas"; si no puede, responde con un motivo. El admin conserva la opción de reasignar directamente. El profesor puede cancelar su reserva y modificarla (con un cambio aceptado) solo hasta el día anterior; el mismo día, cualquier cambio lo hace TICS. Las reasignaciones, cancelaciones, aprobaciones, rechazos y solicitudes de cambio generan notificaciones que se ven en una campana en la barra superior. Todo esto depende de endpoints nuevos (sección 7); mientras no existan, las banderas de `lib/api/funcionesBackend.ts` están en `false` y las pantallas muestran "Pendiente de backend".
-12. **Pruebas automáticas y CI** (2026-10-30): ninguna por ahora; se valida con `pnpm lint`, `pnpm build` y pruebas manuales por rol.
+12. **Mesa de Ayuda** (2026-10-30): al resolver el ticket la solicitud queda cerrada sin confirmación del solicitante (se quita "Confirmar resolución", que nunca funcionaba); el enlace a ServiceDesk apunta a la página general `https://msdtic.uaemex.mx/`; el panel de Admin y Operador es una lista con detalle lateral y bandejas Por revisar / Listas para ticket / Ticket en TICS / Todas, calculadas a partir de una sola consulta; la CURP se muestra oculta hasta pedirla; el solicitante recibirá avisos en la campana cuando su solicitud se apruebe, se rechace o se resuelva (pendiente de backend, sección 7.6).
+13. **Pruebas automáticas y CI** (2026-10-30): ninguna por ahora; se valida con `pnpm lint`, `pnpm build` y pruebas manuales por rol.
 
 ## 5. Riesgos conocidos (sin cambios en el backend)
 
@@ -165,7 +166,9 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 - `CORS` del backend usa `allowedOriginPatterns("*")` con `allowCredentials(true)`. No afecta al frontend gracias al rewrite; queda anotado para el backend.
 - `GET /equipos-computo` devuelve la entidad JPA con `contrasena`, `passwordAdmin` y `lastPassword` en texto plano a cualquier cliente. La relación `sala` es LAZY y puede llegar nula o fallar al serializarse.
 - Las contraseñas de usuario se guardan sin cifrar (`setPasswordHash("Admin123!")` en DataSeeder).
-- `PUT /solicitudes-tecnicas/{id}/cerrar` exige el estado RESUELTO, pero `resolver-ticket` pasa directamente a CERRADA: la acción "Confirmar resolución" del alumno nunca puede completarse.
+- `PUT /solicitudes-tecnicas/{id}/cerrar` exige el estado RESUELTO, pero `resolver-ticket` pasa directamente a CERRADA, así que nunca puede completarse. Por la decisión 12 el frontend ya no lo usa; el endpoint y el estado RESUELTO pueden eliminarse en la refactorización.
+- La CURP se cifra con AES usando una clave escrita en el código (`CryptoUtil`) y `GET /admin/panel` la devuelve descifrada a cualquier cliente, sin verificar el rol. La clave debe ir en configuración externa (no en el repositorio) y el panel debe exigir un usuario de TICS autenticado. Si el descifrado falla, el backend responde el texto "Error al desencriptar" en lugar de la CURP; el formulario la pide de nuevo en ese caso.
+- El DTO de solicitudes técnicas no indica quién la tomó (`operadorAtendiendo`) ni hasta cuándo: el panel no puede mostrar que otra persona la está atendiendo hasta que el backend responda el error al intentar tomarla.
 - Los métodos `mapTo...DTO` de `ReservaSalasService` no llenan varios campos que declaran los DTO (en `UsoSala`: `fecha`, `idUsuario`, `motivoCancelacion`, `adminModifico`...; en `SolicitudReserva`: `motivoRechazo`, `adminAtendio`, `fechaSolicitud`...). Por eso el profesor no ve el motivo de un rechazo y la reasignación toma la fecha de la agenda consultada.
 - No existe un endpoint "mis reservas": el profesor solo ve sus reservas directas en la agenda de cada sala, y no puede cancelarlas él mismo (cancelar es solo `admin/cancelar`).
 - El backend solo valida fin posterior al inicio y el empalme; la anticipación máxima y las fechas pasadas se validan únicamente en el frontend.
@@ -177,6 +180,7 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 - Inventario: el original enviaba `marca` y `modelo`, que el backend ignora (espera `nombreMarca` y `nombreModelo`), por lo que todo equipo creado o editado desde la web quedaba como GENÉRICA / GENÉRICO; corregido. Dar de BAJA en lote pide confirmación; la selección masiva solo afecta a los equipos visibles.
 - Gestión de Usuarios: al editar ya no se cambia el rol a Profesor por error (el original leía `idRol`, que el backend no envía); se añade el rol Estudiante a filtros y formulario; eliminar y cambiar de estado usan confirmación y avisos del prototipo.
 - Reservas: "hoy" se calcula con la fecha local; el original usaba `toISOString()` (UTC) y, en México después de las 18:00, tomaba el día siguiente. La reserva directa y la solicitud extraordinaria comparten un solo modal que decide el modo según la agenda.
+- Mesa de Ayuda: el botón de ServiceDesk ya no abre una orden fija (`woID=46873`) para todas las solicitudes; "Reenviar" ya no manda `idTipo = 1` (el backend lo ignoraba); se añade la bandeja "Ticket en TICS", que en el original solo se veía en "Todas"; "Nueva solicitud" se deshabilita al llegar a 3 solicitudes activas; la CURP aparece oculta en el panel y hay un botón para copiar los datos al ticket de ServiceDesk.
 - Cerrar sesión recarga la página (`window.location`) para que Cache Components no conserve en memoria datos del usuario anterior.
 - El registro público ya no muestra selector de rol: el backend lo ignoraba y siempre asigna "Profesor".
 - Todos los servicios lanzan `ApiError` con el texto del backend. Antes, los métodos sin `try/catch` mostraban el genérico de Axios ("Request failed with status code 400").
@@ -231,7 +235,8 @@ CREATE TABLE IF NOT EXISTS public.notificaciones (
   CONSTRAINT notificaciones_pkey PRIMARY KEY (id_notificacion),
   CONSTRAINT chk_notificacion_tipo CHECK (tipo IN (
     'RESERVA_REASIGNADA', 'RESERVA_CANCELADA', 'SOLICITUD_APROBADA', 'SOLICITUD_RECHAZADA',
-    'CAMBIO_SOLICITADO', 'CAMBIO_RESPONDIDO', 'RESERVA_MODIFICADA'
+    'CAMBIO_SOLICITADO', 'CAMBIO_RESPONDIDO', 'RESERVA_MODIFICADA',
+    'SOLICITUD_TECNICA_APROBADA', 'SOLICITUD_TECNICA_RECHAZADA', 'SOLICITUD_TECNICA_RESUELTA'
   )),
   CONSTRAINT notificaciones_id_usuario_fkey FOREIGN KEY (id_usuario) REFERENCES public.usuarios(id_usuario)
 );
@@ -297,3 +302,15 @@ El frontend consulta cada 60 segundos. Para avisos instantáneos, más adelante 
 - El límite del profesor se valida en el servidor: `uso.getFechaInicio().toLocalDate().isAfter(hoy)`. El frontend aplica la misma regla en `profesorPuedeCambiar` (`features/reservas/reglas.ts`), pero no es suficiente por sí sola.
 - Las comparaciones de ids deben usar `Objects.equals` (ver el riesgo de `Integer !=` en la sección 5).
 - Igual que el resto del backend, estos endpoints reciben `idUsuario`/`idAdmin` sin verificarlos. Con autenticación real (JWT o sesión), esos ids deben salir del usuario autenticado y no del cuerpo de la petición.
+
+### 7.6 Notificaciones de la Mesa de Ayuda
+
+Sin endpoints nuevos: `SolicitudTecnicaService` llama a `NotificacionService.crear` para avisar al solicitante, con enlace `/solicitudes-tecnicas`:
+
+| Método del servicio | Tipo | Mensaje sugerido |
+| --- | --- | --- |
+| `revisarSolicitud` (aprobar) | `SOLICITUD_TECNICA_APROBADA` | "TICS aprobó tu solicitud #N. Completa tus datos para generar el ticket." |
+| `revisarSolicitud` (rechazar) | `SOLICITUD_TECNICA_RECHAZADA` | "TICS rechazó tu solicitud #N: <motivo>." |
+| `resolverTicket` | `SOLICITUD_TECNICA_RESUELTA` | "Tu solicitud #N quedó resuelta. ID de resolución: <código>." |
+
+Los tres tipos ya están en el `CHECK` de la tabla `notificaciones` (7.1) y en `src/types/api/notificacion.ts`.

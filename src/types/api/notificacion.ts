@@ -12,6 +12,9 @@ export type TipoNotificacion = ValorConocido<
   | "CAMBIO_SOLICITADO"
   | "CAMBIO_RESPONDIDO"
   | "RESERVA_MODIFICADA"
+  | "SOLICITUD_TECNICA_APROBADA"
+  | "SOLICITUD_TECNICA_RECHAZADA"
+  | "SOLICITUD_TECNICA_RESUELTA"
 >;
 
 export interface Notificacion {

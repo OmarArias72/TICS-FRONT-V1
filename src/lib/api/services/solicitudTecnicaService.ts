@@ -53,8 +53,12 @@ export const solicitudTecnicaService = {
       "Error al crear la solicitud",
     ),
 
-  /** Solo para solicitudes RECHAZADAS: vuelven a PENDIENTE con el nuevo motivo. */
-  reenviarSolicitud: (idSolicitud: number, idUsuario: number, payload: CrearSolicitudRequest) =>
+  /**
+   * Solo para solicitudes RECHAZADAS: vuelven a PENDIENTE con el nuevo motivo.
+   * El backend ignora `idTipo` al reabrir (conserva el tipo original), así que
+   * solo se envía el motivo. El original mandaba `tipoId || 1`.
+   */
+  reenviarSolicitud: (idSolicitud: number, idUsuario: number, payload: { motivo: string }) =>
     request(
       async () =>
         (
@@ -93,7 +97,8 @@ export const solicitudTecnicaService = {
    *
    * El backend solo lo acepta desde el estado RESUELTO, pero `resolverTicket`
    * pasa directamente a CERRADA; con el flujo actual esta llamada responde
-   * 400 "No puedes cerrar esta solicitud".
+   * 400 "No puedes cerrar esta solicitud". Por eso ninguna pantalla la usa
+   * (decisión 12 en docs/MIGRACION.md); se conserva para la refactorización.
    */
   cerrarSolicitud: (idSolicitud: number, idUsuario: number) =>
     request(
