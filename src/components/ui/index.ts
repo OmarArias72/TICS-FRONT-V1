@@ -10,5 +10,6 @@ export { Modal } from "./Modal";
 export { ModuloPendiente } from "./ModuloPendiente";
 export { PageContainer, PageHeader } from "./PageHeader";
 export { PageLoader } from "./PageLoader";
+export { PasswordChecklist } from "./PasswordChecklist";
 export { CountBadge, StatusBadge } from "./StatusBadge";
 export { TD, TH, THead, TR, Table, TableMessage } from "./Table";
