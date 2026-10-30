@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { House, LogOut, Menu, X } from "lucide-react";
 
+import { NotificacionesBell } from "@/features/notificaciones/NotificacionesBell";
 import { enlacesDeMenu } from "@/lib/auth/roles";
 import { cerrarSesion, useAuthStore } from "@/store/authStore";
 
@@ -82,15 +83,16 @@ export function NavBar() {
             </div>
 
             {hasHydrated && user && (
-              <div className="hidden items-center gap-2.5 text-sm sm:flex">
-                <span className="text-verde-claro">{nombreCompleto}</span>
+              <div className="flex items-center gap-2.5 text-sm">
+                <span className="hidden text-verde-claro sm:inline">{nombreCompleto}</span>
                 <span
-                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-extrabold uppercase ${
+                  className={`hidden rounded-full px-2.5 py-0.5 text-[11px] font-extrabold uppercase sm:inline ${
                     rol === "Admin" ? "bg-dorado text-dorado-oscuro" : "bg-verde-claro text-verde-oscuro"
                   }`}
                 >
                   {rol}
                 </span>
+                <NotificacionesBell idUsuario={user.idUsuario} />
               </div>
             )}
 

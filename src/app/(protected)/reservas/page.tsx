@@ -1,6 +1,9 @@
-import { ModuloPendiente } from "@/components/ui/ModuloPendiente";
+import type { Metadata } from "next";
 
-// Temporal: se reemplaza al migrar features/salas.
+import { ReservaSalasPage } from "@/features/reservas/ReservaSalasPage";
+
+export const metadata: Metadata = { title: "Reserva de Salas | Control TIC" };
+
 export default function ReservasPage() {
-  return <ModuloPendiente titulo="Reserva de Salas" />;
+  return <ReservaSalasPage />;
 }

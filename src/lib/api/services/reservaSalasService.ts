@@ -2,11 +2,17 @@ import { apiClient } from "../client";
 import { request } from "../errors";
 import type {
   AprobarSolicitudRequest,
+  CancelarMiReservaRequest,
   CancelarReservaRequest,
   IsoDate,
+  MiReserva,
+  ModificarMiReservaRequest,
   ReasignarReservaRequest,
   RechazarSolicitudReservaRequest,
   ReservaDirectaRequest,
+  ResponderCambioRequest,
+  SolicitarCambioRequest,
+  SolicitudCambioReserva,
   SolicitudExtraRequest,
   SolicitudReserva,
   UsoSala,
@@ -90,5 +96,50 @@ export const reservaSalasService = {
     request(
       async () => (await apiClient.put<UsoSala>(`${BASE}/admin/cancelar`, payload)).data,
       "Error al cancelar la reserva",
+    ),
+
+  /* ============ Pendiente de backend (FUNCIONES_BACKEND) ============ */
+
+  /** GET /mis-reservas?idUsuario=: reservas del profesor desde hoy. */
+  misReservas: (idUsuario: number) =>
+    request(
+      async () =>
+        (await apiClient.get<MiReserva[]>(`${BASE}/mis-reservas`, { params: { idUsuario } })).data,
+      "Error al obtener tus reservas",
+    ),
+
+  /** PUT /mis-reservas/{idUso}/cancelar: permitido hasta el día anterior. */
+  cancelarMiReserva: (idUso: number, payload: CancelarMiReservaRequest) =>
+    request(
+      async () => (await apiClient.put<UsoSala>(`${BASE}/mis-reservas/${idUso}/cancelar`, payload)).data,
+      "Error al cancelar la reserva",
+    ),
+
+  /** PUT /mis-reservas/{idUso}/modificar: requiere una solicitud de cambio aceptada. */
+  modificarMiReserva: (idUso: number, payload: ModificarMiReservaRequest) =>
+    request(
+      async () => (await apiClient.put<UsoSala>(`${BASE}/mis-reservas/${idUso}/modificar`, payload)).data,
+      "Error al modificar la reserva",
+    ),
+
+  /** POST /admin/solicitar-cambio: el admin pide al profesor cambiar su reserva. */
+  solicitarCambio: (payload: SolicitarCambioRequest) =>
+    request(
+      async () =>
+        (await apiClient.post<SolicitudCambioReserva>(`${BASE}/admin/solicitar-cambio`, payload)).data,
+      "Error al enviar la solicitud de cambio",
+    ),
+
+  /** PUT /solicitudes-cambio/{id}/responder: el profesor acepta o rechaza. */
+  responderCambio: (idSolicitudCambio: number, payload: ResponderCambioRequest) =>
+    request(
+      async () =>
+        (
+          await apiClient.put<SolicitudCambioReserva>(
+            `${BASE}/solicitudes-cambio/${idSolicitudCambio}/responder`,
+            payload,
+          )
+        ).data,
+      "Error al responder la solicitud de cambio",
     ),
 };
