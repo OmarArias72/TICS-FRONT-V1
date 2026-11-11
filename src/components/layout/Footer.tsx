@@ -1,4 +1,6 @@
-/** Pie de página. No tiene interacción, así que se queda como Server Component. */
+import Link from "next/link";
+
+/** Pie de página con enlaces a Ayuda y Privacidad. Sin interacción: Server Component. */
 export function Footer() {
   return (
     <footer className="mt-auto border-t border-verde-oscuro bg-verde-oscuro py-8 text-verde-claro">
@@ -7,6 +9,15 @@ export function Footer() {
           <span className="h-2 w-2 rounded-full bg-dorado" aria-hidden="true" />
           <span className="font-semibold text-superficie">UAEMéx - Gestión de Tecnologías</span>
         </div>
+
+        <nav aria-label="Información" className="flex items-center gap-4">
+          <Link href="/ayuda" className="font-semibold text-superficie underline-offset-4 transition-colors hover:text-dorado hover:underline">
+            Ayuda con tickets
+          </Link>
+          <Link href="/privacidad" className="font-semibold text-superficie underline-offset-4 transition-colors hover:text-dorado hover:underline">
+            Privacidad de tus datos
+          </Link>
+        </nav>
 
         <p>
           Ciclo Escolar - Segunda Etapa |{" "}

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 
 import { LandingSessionActions } from "@/features/landing/LandingSessionActions";
@@ -43,6 +44,13 @@ export default function LandingPage() {
         </p>
 
         <LandingSessionActions />
+
+        <p className="mt-8 text-sm text-sobre-variante">
+          ¿Perdiste la contraseña de tu correo institucional o tu autenticador?{" "}
+          <Link href="/ayuda" className="font-semibold text-verde underline underline-offset-4 hover:text-dorado-texto">
+            Así te ayuda TIC
+          </Link>
+        </p>
       </div>
     </div>
   );
