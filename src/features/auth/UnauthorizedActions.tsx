@@ -22,7 +22,7 @@ export function UnauthorizedActions() {
         <Link href="/" className={`${primaryButtonClass} w-full py-2.5`}>
           Volver al inicio
         </Link>
-        <button type="button" onClick={cerrarSesion} className={`${secondaryButtonClass} w-full py-2.5`}>
+        <button type="button" onClick={() => void cerrarSesion()} className={`${secondaryButtonClass} w-full py-2.5`}>
           <LogOut className="h-4 w-4" aria-hidden="true" />
           Cerrar sesión
         </button>

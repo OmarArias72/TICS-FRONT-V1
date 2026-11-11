@@ -3,23 +3,60 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, CheckCheck } from "lucide-react";
+import { Bell, CalendarClock, CheckCheck, LifeBuoy, Mail, X } from "lucide-react";
 
 import { FUNCIONES_BACKEND } from "@/lib/api/funcionesBackend";
 import { notificacionService } from "@/lib/api/services";
 import { cn } from "@/lib/cn";
-import { formatearFecha } from "@/lib/fechas";
+import { formatearFechaHora } from "@/lib/fechas";
 import type { Notificacion } from "@/types/api";
 
-/** Cada cuánto se consultan notificaciones nuevas (el backend no tiene push). */
+/** Cada cuánto se consulta el contador (el backend no tiene push). */
 const INTERVALO_MS = 60_000;
+/** Cuántas notificaciones se muestran al abrir la campana. */
+const LIMITE_LISTA = 30;
 
-const claveNotificaciones = (idUsuario: number) => ["notificaciones", idUsuario] as const;
+const claves = {
+  todo: (idUsuario: number) => ["notificaciones", idUsuario] as const,
+  conteo: (idUsuario: number) => ["notificaciones", idUsuario, "conteo"] as const,
+  lista: (idUsuario: number) => ["notificaciones", idUsuario, "lista"] as const,
+};
 
 /**
- * Campana de notificaciones en la barra superior (decisión 2026-10-30).
- * Avisa, entre otros, cuando el admin reasigna o cancela una reserva o pide un
- * cambio al profesor. Depende de FUNCIONES_BACKEND.notificaciones.
+ * Prefijos de las consultas que una notificación puede dejar viejas (reservas, cambios,
+ * solicitudes de sala y de la mesa de ayuda). Se escriben aquí para no importar las
+ * claves de cada módulo en la barra superior.
+ */
+const PANTALLAS_CON_AVISOS = [
+  ["mis-reservas"],
+  ["agenda"],
+  ["mis-solicitudes"],
+  ["solicitudes-pendientes"],
+  ["solicitudes-cambio"],
+  ["mis-solicitudes-tecnicas"],
+  ["panel-mesa-ayuda"],
+] as const;
+
+function refrescarPantallas(queryClient: ReturnType<typeof useQueryClient>) {
+  for (const queryKey of PANTALLAS_CON_AVISOS) void queryClient.invalidateQueries({ queryKey });
+}
+
+/** Icono según el grupo del tipo (reservas, mesa de ayuda o buzón). */
+function IconoTipo({ tipo }: { tipo: string }) {
+  const clase = "mt-0.5 h-4 w-4 shrink-0 text-verde";
+  if (tipo === "CORREO_SIN_TICKET") return <Mail className={clase} aria-hidden="true" />;
+  if (tipo.startsWith("SOLICITUD_TECNICA") || tipo.startsWith("TICKET")) {
+    return <LifeBuoy className={clase} aria-hidden="true" />;
+  }
+  return <CalendarClock className={clase} aria-hidden="true" />;
+}
+
+/**
+ * Campana de notificaciones en la barra superior (backend v4.1).
+ *
+ * - Cada 60 s (y al volver a la pestaña) consulta solo `GET /notificaciones/conteo`.
+ * - La lista (`GET /notificaciones`) se pide al abrir el panel.
+ * - Al hacer clic se marca como leída y se navega a su `enlace`.
  */
 export function NotificacionesBell({ idUsuario }: { idUsuario: number }) {
   const [abierto, setAbierto] = useState(false);
@@ -28,22 +65,49 @@ export function NotificacionesBell({ idUsuario }: { idUsuario: number }) {
   const queryClient = useQueryClient();
   const disponible = FUNCIONES_BACKEND.notificaciones;
 
-  const query = useQuery({
-    queryKey: claveNotificaciones(idUsuario),
-    queryFn: () => notificacionService.listar(idUsuario),
+  const conteo = useQuery({
+    queryKey: claves.conteo(idUsuario),
+    queryFn: notificacionService.conteo,
     enabled: disponible,
     refetchInterval: INTERVALO_MS,
+    refetchOnWindowFocus: true,
   });
-  const notificaciones = query.data ?? [];
-  const noLeidas = notificaciones.filter((n) => !n.leida).length;
 
-  const refrescar = () => void queryClient.invalidateQueries({ queryKey: claveNotificaciones(idUsuario) });
+  const query = useQuery({
+    queryKey: claves.lista(idUsuario),
+    queryFn: () => notificacionService.listar(LIMITE_LISTA),
+    enabled: disponible && abierto,
+    staleTime: 0,
+  });
+  const notificaciones = query.data?.notificaciones ?? [];
+  // El total sale del servidor: la lista solo trae las 30 más recientes.
+  const noLeidas = (abierto ? query.data?.noLeidas : undefined) ?? conteo.data?.noLeidas ?? 0;
+
+  // Si el contador sube mientras el panel está abierto, se recarga la lista. Y si sube en
+  // cualquier momento, llegó un aviso (cambio de reserva, ticket, etc.): se recargan las
+  // pantallas que podrían mostrar ese cambio, sin que el usuario tenga que refrescar.
+  const ultimoConteo = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    const actual = conteo.data?.noLeidas;
+    const anterior = ultimoConteo.current;
+    if (anterior !== undefined && actual !== undefined && actual !== anterior) {
+      if (abierto) void queryClient.invalidateQueries({ queryKey: claves.lista(idUsuario) });
+      if (actual > anterior) refrescarPantallas(queryClient);
+    }
+    ultimoConteo.current = actual;
+  }, [conteo.data?.noLeidas, abierto, idUsuario, queryClient]);
+
+  const refrescar = () => void queryClient.invalidateQueries({ queryKey: claves.todo(idUsuario) });
   const marcarLeida = useMutation({
-    mutationFn: (id: number) => notificacionService.marcarLeida(id, idUsuario),
+    mutationFn: (id: number) => notificacionService.marcarLeida(id),
     onSuccess: refrescar,
   });
   const marcarTodas = useMutation({
-    mutationFn: () => notificacionService.marcarTodasLeidas(idUsuario),
+    mutationFn: () => notificacionService.marcarTodasLeidas(),
+    onSuccess: refrescar,
+  });
+  const eliminar = useMutation({
+    mutationFn: (id: number) => notificacionService.eliminar(id),
     onSuccess: refrescar,
   });
 
@@ -67,6 +131,8 @@ export function NotificacionesBell({ idUsuario }: { idUsuario: number }) {
   const abrirNotificacion = (n: Notificacion) => {
     if (!n.leida) marcarLeida.mutate(n.idNotificacion);
     setAbierto(false);
+    // Si ya estaba en esa página, router.push no vuelve a pedir los datos
+    refrescarPantallas(queryClient);
     if (n.enlace) router.push(n.enlace);
   };
 
@@ -86,7 +152,7 @@ export function NotificacionesBell({ idUsuario }: { idUsuario: number }) {
             className="absolute -right-0.5 -top-0.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-dorado px-1 text-[10px] font-extrabold text-dorado-oscuro"
             aria-hidden="true"
           >
-            {noLeidas > 9 ? "9+" : noLeidas}
+            {noLeidas > 99 ? "99+" : noLeidas}
           </span>
         )}
       </button>
@@ -128,12 +194,12 @@ export function NotificacionesBell({ idUsuario }: { idUsuario: number }) {
             ) : (
               <ul className="divide-y divide-variante">
                 {notificaciones.map((n) => (
-                  <li key={n.idNotificacion}>
+                  <li key={n.idNotificacion} className="group relative">
                     <button
                       type="button"
                       onClick={() => abrirNotificacion(n)}
                       className={cn(
-                        "flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-superficie",
+                        "flex w-full gap-3 py-3 pl-4 pr-10 text-left transition-colors hover:bg-superficie",
                         !n.leida && "bg-verde-claro/25",
                       )}
                     >
@@ -141,14 +207,24 @@ export function NotificacionesBell({ idUsuario }: { idUsuario: number }) {
                         className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", n.leida ? "bg-transparent" : "bg-dorado")}
                         aria-hidden="true"
                       />
+                      <IconoTipo tipo={n.tipo} />
                       <span className="min-w-0">
                         <span className="block text-sm font-bold">
                           {n.titulo}
                           {!n.leida && <span className="sr-only"> (sin leer)</span>}
                         </span>
                         <span className="mt-0.5 block text-[13px] leading-snug text-sobre-variante">{n.mensaje}</span>
-                        <span className="mt-1 block text-[11px] text-outline">{formatearFecha(n.fechaCreacion)}</span>
+                        <span className="mt-1 block text-[11px] text-outline">{formatearFechaHora(n.fechaCreacion)}</span>
                       </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => eliminar.mutate(n.idNotificacion)}
+                      disabled={eliminar.isPending && eliminar.variables === n.idNotificacion}
+                      aria-label={`Quitar la notificación "${n.titulo}"`}
+                      className="absolute right-2 top-2.5 rounded-lg p-1.5 text-outline opacity-100 transition-opacity hover:bg-variante hover:text-sobre-superficie focus:outline-none focus-visible:ring-2 focus-visible:ring-dorado sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+                    >
+                      <X className="h-3.5 w-3.5" aria-hidden="true" />
                     </button>
                   </li>
                 ))}

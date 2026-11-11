@@ -1,6 +1,6 @@
 import { apiClient } from "../client";
 import { request } from "../errors";
-import type { EquipoComputo, EquipoComputoRequest } from "@/types/api";
+import type { ContrasenasEquipo, EquipoComputo, EquipoComputoRequest } from "@/types/api";
 
 /**
  * Endpoints de `/api/equipos-computo` (equipo base + detalle técnico).
@@ -67,5 +67,12 @@ export const equipoComputoService = {
       },
       "Error al eliminar el equipo",
       { 404: "No se encontró el equipo para eliminar" },
+    ),
+
+  /** GET /equipos-computo/{id}/contrasenas: valores reales; la consulta queda en la bitácora. */
+  obtenerContrasenas: (id: number) =>
+    request(
+      async () => (await apiClient.get<ContrasenasEquipo>(`/equipos-computo/${id}/contrasenas`)).data,
+      "Error al obtener las contraseñas del equipo",
     ),
 };

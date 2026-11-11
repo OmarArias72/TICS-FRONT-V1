@@ -37,6 +37,10 @@ type FiltroEstado = "" | "activo" | "inactivo";
  * Reglas añadidas (decisión 2026-10-30):
  * - El Admin no puede eliminarse ni desactivarse a sí mismo, ni cambiar su rol.
  * - Las contraseñas nuevas deben cumplir lib/validation/password.ts.
+ *
+ * Backend v4: el backend también impide quitar al último Admin (ULTIMO_ADMIN),
+ * cambiar la contraseña, el rol o el estado cierra las sesiones de ese
+ * usuario, y "Desbloquear" quita el bloqueo de 15 min tras 5 intentos fallidos.
  */
 export function UsersAdminPage() {
   const queryClient = useQueryClient();
@@ -94,7 +98,7 @@ export function UsersAdminPage() {
         const propio = esPropio(editando);
         const payload: UsuarioUpdateRequest = {
           ...base,
-          idRol: propio ? ID_ROL[editando.nombreRol] : base.idRol,
+          idRol: propio ? (editando.idRol ?? ID_ROL[editando.nombreRol]) : base.idRol,
           activo: propio ? true : base.activo,
           // Vacía: el backend conserva la contraseña actual.
           password: values.password ? values.password : null,
@@ -133,6 +137,12 @@ export function UsersAdminPage() {
       toast.success("Usuario eliminado");
       setPorEliminar(null);
     },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const desbloquear = useMutation({
+    mutationFn: (u: Usuario) => usuarioService.desbloquear(u.idUsuario),
+    onSuccess: (_d, u) => toast.success(`Se quitó el bloqueo por intentos de ${u.nombre}`),
     onError: (err: Error) => toast.error(err.message),
   });
 
@@ -240,6 +250,8 @@ export function UsersAdminPage() {
           onCambiarEstado={(u) => {
             if (!esPropio(u)) cambiarEstado.mutate(u);
           }}
+          idDesbloqueando={desbloquear.isPending ? (desbloquear.variables?.idUsuario ?? null) : null}
+          onDesbloquear={(u) => desbloquear.mutate(u)}
         />
       </Card>
 

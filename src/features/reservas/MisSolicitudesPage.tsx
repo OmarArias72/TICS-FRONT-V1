@@ -21,6 +21,7 @@ import { formatearDia } from "@/lib/fechas";
 import { useAuthStore } from "@/store/authStore";
 import type { EstadoSolicitudReserva } from "@/types/api";
 
+import { AvisoCambiosPendientes } from "./CambiosPendientes";
 import { clavesReservas } from "./claves";
 
 type Filtro = "TODAS" | "Pendiente" | "Aprobada" | "Rechazada";
@@ -36,9 +37,11 @@ const FILTROS: Array<{ valor: Filtro; etiqueta: string }> = [
  * Historial de solicitudes extraordinarias del usuario (antes
  * MisSolicitudesPage.jsx).
  *
- * Limitación del backend: las reservas directas confirmadas no aparecen aquí
- * (no hay endpoint para consultarlas por usuario) y el motivo de rechazo no se
- * envía en la respuesta.
+ * Las reservas directas se consultan en "Mis reservas". Desde el backend v4
+ * llegan el motivo de rechazo y quién atendió la solicitud.
+ *
+ * Arriba se resaltan las solicitudes de cambio que TIC le envió al profesor
+ * (además del aviso en la campana), con un enlace directo a la reserva.
  */
 export function MisSolicitudesPage() {
   const idUsuario = useAuthStore((s) => s.user?.idUsuario);
@@ -46,7 +49,7 @@ export function MisSolicitudesPage() {
 
   const query = useQuery({
     queryKey: clavesReservas.misSolicitudes(idUsuario),
-    queryFn: () => reservaSalasService.misSolicitudes(idUsuario!),
+    queryFn: reservaSalasService.misSolicitudes,
     enabled: idUsuario !== undefined,
   });
 
@@ -63,13 +66,15 @@ export function MisSolicitudesPage() {
       <PageHeader
         eyebrow="Reserva de Salas"
         title="Mis solicitudes"
-        description="Solicitudes extraordinarias que has enviado al administrador."
+        description="Solicitudes extraordinarias que has enviado al administrador y cambios que TIC te pide en tus reservas."
         actions={
           <ButtonLink href="/reservas" variant="secondary" icon={<ArrowLeft className="h-4 w-4" aria-hidden="true" />}>
             Volver a reservas
           </ButtonLink>
         }
       />
+
+      <AvisoCambiosPendientes />
 
       <div role="group" aria-label="Filtrar por estado" className="flex flex-wrap gap-2">
         {FILTROS.map((f) => {
@@ -129,11 +134,13 @@ export function MisSolicitudesPage() {
                   </p>
                 )}
                 {s.estado === "Rechazada" && (
-                  <p className="text-[13px] text-sobre-variante">
-                    {s.motivoRechazo
-                      ? `Motivo: ${s.motivoRechazo}`
-                      : "El administrador rechazó esta solicitud. Si necesitas el motivo, consúltalo con el área de TICS."}
+                  <p className="rounded-xl bg-error-claro px-4 py-3 text-[13px] text-error-oscuro">
+                    <span className="font-bold">Motivo del rechazo:</span>{" "}
+                    {s.motivoRechazo ?? "sin motivo registrado. Consúltalo con el área de TICS."}
                   </p>
+                )}
+                {s.adminAtendio && s.estado !== "Pendiente" && (
+                  <p className="text-[12px] text-outline">Atendió: {s.adminAtendio}</p>
                 )}
               </Card>
             </li>

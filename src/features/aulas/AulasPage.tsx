@@ -136,7 +136,7 @@ export function AulasPage() {
         title="Eliminar equipo"
         description={
           eliminando
-            ? `Se eliminará ${eliminando.equipo.inventario} del mapa y también del inventario. Si solo dejó de usarse, mejor cámbialo a BAJA.`
+            ? `Se eliminará ${eliminando.inventario} del mapa y también del inventario. Si solo dejó de usarse, mejor cámbialo a BAJA.`
             : undefined
         }
         confirmLabel="Eliminar"

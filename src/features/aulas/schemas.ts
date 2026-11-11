@@ -40,9 +40,11 @@ export const equipoComputoSchema = z.object({
   estadoCpu: z.string(),
   estadoComputadora: z.string(),
 
-  contrasena: texto(255),
-  passwordAdmin: texto(255),
-  lastPassword: texto(255),
+  /** Nueva contraseña; vacía conserva la actual. */
+  contrasena: texto(200),
+  borrarContrasena: z.boolean(),
   observaciones: texto(2000),
+  /** Nota para la bitácora del equipo. */
+  motivoCambio: texto(1000),
 });
 export type EquipoComputoValues = z.infer<typeof equipoComputoSchema>;

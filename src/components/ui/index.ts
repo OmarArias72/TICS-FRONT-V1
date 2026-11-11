@@ -5,7 +5,7 @@ export { Card, CardHeader } from "./Card";
 export { ConfirmDialog } from "./ConfirmDialog";
 export { EmptyState } from "./EmptyState";
 export { FormField, Input, Label, Select, Textarea } from "./Form";
-export { IconButton } from "./IconButton";
+export { IconButton, IconLink } from "./IconButton";
 export { Modal } from "./Modal";
 export { ModuloPendiente } from "./ModuloPendiente";
 export { MotivoModal } from "./MotivoModal";

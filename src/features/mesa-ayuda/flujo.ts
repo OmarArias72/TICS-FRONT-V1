@@ -52,6 +52,9 @@ export const ESTADOS_ACTIVOS: readonly EstadoSolicitudTecnica[] = [
 
 export const MAX_SOLICITUDES_ACTIVAS = 3;
 
+/** Horas de espera entre solicitudes del mismo tipo (backend v4). */
+export const HORAS_ENTRE_SOLICITUDES = 8;
+
 /** Texto legible de un tipo: "REINICIO_PASSWORD" -> "Reinicio de contraseña". */
 export function nombreTipo(tipo: TipoSolicitud["nombre"]): string {
   switch (tipo) {
@@ -65,3 +68,6 @@ export function nombreTipo(tipo: TipoSolicitud["nombre"]): string {
       return tipo.replace(/_/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase());
   }
 }
+
+/** Vigencia del enlace del formulario de una solicitud externa (`app.tickets.horas-enlace-externo`). */
+export const HORAS_ENLACE_EXTERNO = 72;

@@ -1,9 +1,12 @@
 import type {
   EstadoComputadora,
   EstadoEquipo,
+  EstadoSolicitudCambio,
   EstadoSolicitudReserva,
   EstadoSolicitudTecnica,
   EstadoUsoSala,
+  EventoCorreo,
+  ResultadoCorreo,
 } from "@/types/api";
 
 /**
@@ -63,6 +66,10 @@ export function estadoUsoSala(estado: EstadoUsoSala | null | undefined): EstadoV
   switch (estado) {
     case "Confirmada":
       return { tono: "ok", etiqueta: "Confirmada" };
+    case "Reservada":
+      return { tono: "ok", etiqueta: "Reservada" };
+    case "Reasignada":
+      return { tono: "info", etiqueta: "Reasignada" };
     case "Cancelada":
       return { tono: "neutro", etiqueta: "Cancelada" };
     default:
@@ -100,4 +107,58 @@ export function estadoSolicitudTecnica(estado: EstadoSolicitudTecnica): EstadoVi
     CANCELADA: { tono: "neutro", etiqueta: "Cancelada" },
   };
   return mapa[estado] ?? desconocido(estado);
+}
+
+/** Estado de una solicitud de cambio de reserva (Admin/Operador -> Profesor). */
+export function estadoSolicitudCambio(estado: EstadoSolicitudCambio | null | undefined): EstadoVisual {
+  switch (estado) {
+    case "Pendiente":
+      return { tono: "alerta", etiqueta: "Pendiente de respuesta" };
+    case "Aceptada":
+      return { tono: "info", etiqueta: "Aceptada" };
+    case "Aplicada":
+      return { tono: "ok", etiqueta: "Aplicada" };
+    case "Rechazada":
+      return { tono: "error", etiqueta: "Rechazada" };
+    case "Expirada":
+      return { tono: "neutro", etiqueta: "Expirada" };
+    default:
+      return desconocido(estado);
+  }
+}
+
+/** Resultado de un correo leído del buzón de TIC. */
+export function resultadoCorreo(resultado: ResultadoCorreo | null | undefined): EstadoVisual {
+  switch (resultado) {
+    case "REGISTRADO":
+      return { tono: "ok", etiqueta: "Registrado" };
+    case "SIN_ASOCIAR":
+      return { tono: "alerta", etiqueta: "Sin asociar" };
+    case "SIN_TICKET":
+      return { tono: "alerta", etiqueta: "Sin ticket" };
+    case "IGNORADO":
+      return { tono: "neutro", etiqueta: "Descartado" };
+    case "DUPLICADO":
+      return { tono: "neutro", etiqueta: "Duplicado" };
+    case "ERROR":
+      return { tono: "error", etiqueta: "Error" };
+    default:
+      return desconocido(resultado);
+  }
+}
+
+/** Evento de ServiceDesk de un correo o de una actualización del ticket. */
+export function eventoCorreo(evento: EventoCorreo | null | undefined): EstadoVisual {
+  switch (evento) {
+    case "CREADO":
+      return { tono: "info", etiqueta: "Ticket creado" };
+    case "ACTUALIZADO":
+      return { tono: "dorado", etiqueta: "Actualizado" };
+    case "RESUELTO":
+      return { tono: "ok", etiqueta: "Resuelto" };
+    case "CERRADO":
+      return { tono: "ok", etiqueta: "Cerrado" };
+    default:
+      return { tono: "neutro", etiqueta: "Correo" };
+  }
 }

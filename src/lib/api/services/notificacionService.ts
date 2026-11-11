@@ -1,33 +1,38 @@
 import { apiClient } from "../client";
 import { request } from "../errors";
-import type { Notificacion } from "@/types/api";
+import type { BandejaNotificaciones } from "@/types/api";
 
 const BASE = "/notificaciones";
 
-/**
- * Endpoints de `/api/notificaciones`. Pendientes en el backend: protegidos por
- * FUNCIONES_BACKEND.notificaciones.
- */
+/** Endpoints de `/api/notificaciones` (cualquier usuario con sesión, backend v4.1). */
 export const notificacionService = {
-  listar: (idUsuario: number) =>
+  /** GET /notificaciones?limite=&soloNoLeidas=. `limite` entre 1 y 100. */
+  listar: (limite = 30, soloNoLeidas = false) =>
     request(
-      async () => (await apiClient.get<Notificacion[]>(BASE, { params: { idUsuario } })).data,
+      async () => (await apiClient.get<BandejaNotificaciones>(BASE, { params: { limite, soloNoLeidas } })).data,
       "Error al obtener las notificaciones",
     ),
 
-  marcarLeida: (idNotificacion: number, idUsuario: number) =>
+  /** GET /notificaciones/conteo: para el globo de la campana. */
+  conteo: () =>
     request(
-      async () => {
-        await apiClient.put(`${BASE}/${idNotificacion}/leida`, null, { params: { idUsuario } });
-      },
-      "Error al marcar la notificación",
+      async () => (await apiClient.get<{ noLeidas: number }>(`${BASE}/conteo`)).data,
+      "Error al obtener las notificaciones",
     ),
 
-  marcarTodasLeidas: (idUsuario: number) =>
-    request(
-      async () => {
-        await apiClient.put(`${BASE}/leidas`, null, { params: { idUsuario } });
-      },
-      "Error al marcar las notificaciones",
-    ),
+  marcarLeida: (idNotificacion: number) =>
+    request(async () => {
+      await apiClient.put(`${BASE}/${idNotificacion}/leida`);
+    }, "Error al marcar la notificación"),
+
+  marcarTodasLeidas: () =>
+    request(async () => {
+      await apiClient.put(`${BASE}/leidas`);
+    }, "Error al marcar las notificaciones"),
+
+  /** DELETE /notificaciones/{id}: 404 si no es del usuario. */
+  eliminar: (idNotificacion: number) =>
+    request(async () => {
+      await apiClient.delete(`${BASE}/${idNotificacion}`);
+    }, "Error al quitar la notificación"),
 };

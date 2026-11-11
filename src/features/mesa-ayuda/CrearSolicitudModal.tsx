@@ -10,7 +10,7 @@ import { Alert, Button, FormField, Modal, Select, Textarea } from "@/components/
 import { solicitudTecnicaService } from "@/lib/api/services";
 
 import { clavesMesaAyuda } from "./claves";
-import { MAX_SOLICITUDES_ACTIVAS } from "./flujo";
+import { HORAS_ENTRE_SOLICITUDES, MAX_SOLICITUDES_ACTIVAS } from "./flujo";
 import { crearSolicitudSchema, type CrearSolicitudValues } from "./schemas";
 
 interface CrearSolicitudModalProps {
@@ -54,7 +54,7 @@ function CrearSolicitudForm({ idUsuario, onClose }: { idUsuario: number; onClose
 
   const mutation = useMutation({
     mutationFn: (v: CrearSolicitudValues) =>
-      solicitudTecnicaService.crearSolicitud(idUsuario, { idTipo: Number(v.idTipo), motivo: v.motivo || null }),
+      solicitudTecnicaService.crearSolicitud({ idTipo: Number(v.idTipo), motivo: v.motivo || null }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: clavesMesaAyuda.misSolicitudes(idUsuario) });
       toast.success("Solicitud enviada; TICS la revisará");
@@ -98,7 +98,7 @@ function CrearSolicitudForm({ idUsuario, onClose }: { idUsuario: number; onClose
       </FormField>
 
       <Alert tone="info">
-        Puedes tener hasta {MAX_SOLICITUDES_ACTIVAS} solicitudes activas y enviar una del mismo tipo cada 24 horas.
+        Puedes tener hasta {MAX_SOLICITUDES_ACTIVAS} solicitudes activas y enviar una del mismo tipo cada {HORAS_ENTRE_SOLICITUDES} horas.
       </Alert>
 
       <div className="-mx-6 -mb-5 flex flex-wrap justify-end gap-2.5 bg-superficie px-6 py-3.5">

@@ -7,7 +7,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Ban, RotateCcw, Save } from "lucide-react";
 import { toast } from "react-hot-toast";
 
-import { Alert, Button, ConfirmDialog, FormField, Input, Modal, StatusBadge, Textarea } from "@/components/ui";
+import { Alert, Button, ConfirmDialog, FormField, Modal, StatusBadge, Textarea } from "@/components/ui";
+import { ApiError } from "@/lib/api/errors";
 import { solicitudTecnicaService } from "@/lib/api/services";
 import { estadoSolicitudTecnica } from "@/lib/estados";
 import { formatearFecha } from "@/lib/fechas";
@@ -16,9 +17,11 @@ import type { SolicitudTecnica } from "@/types/api";
 
 import { clavesMesaAyuda } from "./claves";
 import { ESTADOS_CANCELABLES, ESTADOS_CON_FORMULARIO, nombreTipo } from "./flujo";
+import { ActualizacionesTicket } from "./ActualizacionesTicket";
+import { CamposFormularioDatos } from "./CamposFormularioDatos";
 import { HistorialSolicitud } from "./HistorialSolicitud";
 import { ProgresoSolicitud } from "./ProgresoSolicitud";
-import { formularioSchema, reenviarSchema, REGEX_CURP, type FormularioValues, type ReenviarValues } from "./schemas";
+import { formularioSchema, reenviarSchema, type FormularioValues, type ReenviarValues } from "./schemas";
 
 interface DetalleProps {
   solicitud: SolicitudTecnica | null;
@@ -60,7 +63,7 @@ function Detalle({ solicitud, idUsuario, onClose }: DetalleProps & { solicitud: 
   };
 
   const cancelar = useMutation({
-    mutationFn: () => solicitudTecnicaService.cancelarSolicitud(solicitud.idSolicitud, idUsuario),
+    mutationFn: () => solicitudTecnicaService.cancelarSolicitud(solicitud.idSolicitud),
     onSuccess: () => alTerminar("Solicitud cancelada"),
     onError: (err: Error) => toast.error(err.message),
   });
@@ -88,9 +91,9 @@ function Detalle({ solicitud, idUsuario, onClose }: DetalleProps & { solicitud: 
       {estado === "PENDIENTE" && (
         <Alert tone="neutro">TICS revisará tu solicitud. Si la aprueba, te pedirá algunos datos para generar el ticket.</Alert>
       )}
-      {estado === "RECHAZADA" && <ReenviarSolicitud solicitud={solicitud} idUsuario={idUsuario} onTerminar={alTerminar} />}
+      {estado === "RECHAZADA" && <ReenviarSolicitud solicitud={solicitud} onTerminar={alTerminar} />}
       {ESTADOS_CON_FORMULARIO.includes(estado) && (
-        <FormularioDatos solicitud={solicitud} idUsuario={idUsuario} onTerminar={alTerminar} />
+        <FormularioDatos solicitud={solicitud} onTerminar={alTerminar} />
       )}
       {estado === "ESPERA_TICKET" && (
         <Alert tone="info">TICS está generando el ticket en ServiceDesk con tus datos.</Alert>
@@ -122,6 +125,10 @@ function Detalle({ solicitud, idUsuario, onClose }: DetalleProps & { solicitud: 
         </div>
       )}
 
+      {ticket?.actualizaciones && ticket.actualizaciones.length > 0 && (
+        <ActualizacionesTicket actualizaciones={ticket.actualizaciones} />
+      )}
+
       {solicitud.historial && solicitud.historial.length > 0 && <HistorialSolicitud historial={solicitud.historial} />}
 
       <ConfirmDialog
@@ -144,11 +151,9 @@ function Detalle({ solicitud, idUsuario, onClose }: DetalleProps & { solicitud: 
 
 function ReenviarSolicitud({
   solicitud,
-  idUsuario,
   onTerminar,
 }: {
   solicitud: SolicitudTecnica;
-  idUsuario: number;
   onTerminar: (mensaje: string) => void;
 }) {
   const [editando, setEditando] = useState(false);
@@ -162,7 +167,7 @@ function ReenviarSolicitud({
   });
   const mutation = useMutation({
     mutationFn: (v: ReenviarValues) =>
-      solicitudTecnicaService.reenviarSolicitud(solicitud.idSolicitud, idUsuario, { motivo: v.motivo }),
+      solicitudTecnicaService.reenviarSolicitud(solicitud.idSolicitud, { motivo: v.motivo }),
     onSuccess: () => onTerminar("Solicitud reenviada a TICS"),
     onError: (err: Error) => toast.error(err.message),
   });
@@ -208,11 +213,9 @@ function ReenviarSolicitud({
 
 function FormularioDatos({
   solicitud,
-  idUsuario,
   onTerminar,
 }: {
   solicitud: SolicitudTecnica;
-  idUsuario: number;
   onTerminar: (mensaje: string) => void;
 }) {
   const user = useAuthStore((s) => s.user);
@@ -226,8 +229,9 @@ function FormularioDatos({
         correoInstitucional: f.correoInstitucional,
         correoAlterno: f.correoAlterno ?? "",
         numeroCuenta: f.numeroCuenta,
-        // Si el backend no pudo descifrarla, se pide de nuevo.
-        curp: f.curp && REGEX_CURP.test(f.curp) ? f.curp : "",
+        // El backend solo devuelve la CURP enmascarada: hay que escribirla
+        // completa de nuevo para guardar cambios.
+        curp: "",
         telefono: f.telefono ?? "",
         descripcionProblema: f.descripcionProblema ?? "",
       };
@@ -247,19 +251,24 @@ function FormularioDatos({
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isDirty },
   } = useForm<FormularioValues>({ resolver: zodResolver(formularioSchema), defaultValues: iniciales });
+  const curpGuardada = solicitud.formulario?.curpEnmascarada;
 
   const mutation = useMutation({
     mutationFn: (v: FormularioValues) =>
-      solicitudTecnicaService.llenarFormulario(solicitud.idSolicitud, idUsuario, {
-        ...v,
-        correoAlterno: v.correoAlterno || null,
-        telefono: v.telefono || null,
-        descripcionProblema: v.descripcionProblema || null,
-      }),
+      solicitudTecnicaService.llenarFormulario(solicitud.idSolicitud, v),
     onSuccess: () => onTerminar(enviado ? "Datos actualizados" : "Datos enviados a TICS"),
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => {
+      // Errores de validación del backend por campo (VALIDACION + detalles).
+      if (err instanceof ApiError) {
+        for (const [campo, mensaje] of Object.entries(err.detalles)) {
+          if (campo in iniciales) setError(campo as keyof FormularioValues, { message: mensaje });
+        }
+      }
+      toast.error(err.message);
+    },
   });
 
   return (
@@ -280,39 +289,15 @@ function FormularioDatos({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <FormField label="Nombre completo" required error={errors.nombreCompleto?.message} className="sm:col-span-2">
-          {(a11y) => <Input {...a11y} autoComplete="name" {...register("nombreCompleto")} />}
-        </FormField>
-        <FormField label="Correo institucional" required error={errors.correoInstitucional?.message}>
-          {(a11y) => <Input {...a11y} type="email" autoComplete="email" placeholder="usuario@uaemex.mx" {...register("correoInstitucional")} />}
-        </FormField>
-        <FormField
-          label="Correo alterno"
-          error={errors.correoAlterno?.message}
-          hint="Para contactarte si no puedes entrar a tu correo institucional."
-        >
-          {(a11y) => <Input {...a11y} type="email" {...register("correoAlterno")} />}
-        </FormField>
-        <FormField label="Número de cuenta" required error={errors.numeroCuenta?.message}>
-          {(a11y) => <Input {...a11y} inputMode="numeric" maxLength={7} {...register("numeroCuenta")} />}
-        </FormField>
-        <FormField label="Teléfono" error={errors.telefono?.message}>
-          {(a11y) => <Input {...a11y} type="tel" inputMode="numeric" maxLength={10} autoComplete="tel" {...register("telefono")} />}
-        </FormField>
-        <FormField
-          label="CURP"
-          required
-          error={errors.curp?.message}
-          hint="Tal como aparece en tu documento oficial. Se guarda cifrada."
-          className="sm:col-span-2"
-        >
-          {(a11y) => <Input {...a11y} maxLength={18} autoComplete="off" className="uppercase" {...register("curp")} />}
-        </FormField>
-        <FormField label="Descripción del problema" error={errors.descripcionProblema?.message} className="sm:col-span-2">
-          {(a11y) => <Textarea {...a11y} rows={3} {...register("descripcionProblema")} />}
-        </FormField>
-      </div>
+      <CamposFormularioDatos
+        register={register}
+        errors={errors}
+        hintCurp={
+          curpGuardada
+            ? `Registrada: ${curpGuardada}. Por seguridad escríbela completa de nuevo para guardar cambios.`
+            : "Tal como aparece en tu documento oficial. Se guarda cifrada."
+        }
+      />
 
       <div className="flex justify-end">
         <Button

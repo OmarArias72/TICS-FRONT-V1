@@ -38,6 +38,20 @@ export function formatearFecha(iso: string | null | undefined): string {
   return fecha.toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" });
 }
 
+/** Fecha y hora del backend en formato corto: "30 oct 2026, 09:15". */
+export function formatearFechaHora(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const fecha = new Date(iso);
+  if (Number.isNaN(fecha.getTime())) return "—";
+  return fecha.toLocaleString("es-MX", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 /** Fecha YYYY-MM-DD en formato largo: "viernes 30 de octubre". */
 export function formatearDia(fechaISO: string): string {
   const [a, m, d] = fechaISO.split("-").map(Number);

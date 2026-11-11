@@ -1,3 +1,5 @@
+import { isAxiosError } from "axios";
+
 import { apiClient } from "../client";
 import { request } from "../errors";
 import type {
@@ -17,17 +19,34 @@ const buscar = (ruta: string, query: string) =>
     "Error al buscar equipos",
   );
 
-/** Descarga de reportes. Solo envía los filtros que tienen valor. */
-const descargarReporte = (formato: "pdf" | "csv", filtros: FiltrosReporte) =>
+export type FormatoReporte = "pdf" | "xlsx" | "csv";
+
+/**
+ * Descarga de reportes. Solo envía los filtros que tienen valor.
+ * Con `responseType: "blob"` el error del backend también llega como Blob;
+ * se convierte a JSON para poder leer su `message` y `codigo`.
+ */
+const descargarReporte = (formato: FormatoReporte, filtros: FiltrosReporte) =>
   request(async () => {
     const params = Object.fromEntries(
       Object.entries(filtros).filter(([, valor]) => Boolean(valor)),
     );
-    const { data } = await apiClient.get<Blob>(`/reportes/equipos/${formato}`, {
-      params,
-      responseType: "blob",
-    });
-    return data;
+    try {
+      const { data } = await apiClient.get<Blob>(`/reportes/equipos/${formato}`, {
+        params,
+        responseType: "blob",
+      });
+      return data;
+    } catch (error) {
+      if (isAxiosError(error) && error.response?.data instanceof Blob) {
+        try {
+          error.response.data = JSON.parse(await error.response.data.text());
+        } catch {
+          // No era JSON: se queda el mensaje por defecto.
+        }
+      }
+      throw error;
+    }
   }, `Error al descargar el reporte ${formato.toUpperCase()}`);
 
 const conteo = (agruparPor: AgrupacionConteo) =>
@@ -60,13 +79,15 @@ export const inventoryService = {
   buscarPorArticulo: (query: string) => buscar("buscar-por-articulo", query),
   buscarGlobal: (query: string) => buscar("buscar-global", query),
 
-  actualizarEstadoMasivo: (inventarios: string[], nuevoEstado: EstadoEquipo) =>
+  /** PATCH /inventory/estado-masivo. Admin y Operador pasan a BAJA; sacar de BAJA solo el Admin (SOLO_ADMIN_BAJA). */
+  actualizarEstadoMasivo: (inventarios: string[], nuevoEstado: EstadoEquipo, observacion?: string) =>
     request(
       async () =>
         (
           await apiClient.patch<EquipoVista[]>("/inventory/estado-masivo", {
             inventarios,
             nuevoEstado,
+            observacion: observacion || null,
           })
         ).data,
       "Error al actualizar el estado masivo",
@@ -103,11 +124,8 @@ export const inventoryService = {
       { 404: "El equipo a eliminar no existe" },
     ),
 
-  descargarReportePdf: (fechaInicio?: string, fechaFin?: string, articulo?: string) =>
-    descargarReporte("pdf", { fechaInicio, fechaFin, articulo }),
-
-  descargarReporteCsv: (fechaInicio?: string, fechaFin?: string, articulo?: string) =>
-    descargarReporte("csv", { fechaInicio, fechaFin, articulo }),
+  /** GET /reportes/equipos/{pdf|xlsx|csv}. Cada descarga queda en la auditoría. */
+  descargarReporte: (formato: FormatoReporte, filtros: FiltrosReporte) => descargarReporte(formato, filtros),
 
   contarPorArticulo: () => conteo("articulo"),
   contarPorModelo: () => conteo("modelo"),

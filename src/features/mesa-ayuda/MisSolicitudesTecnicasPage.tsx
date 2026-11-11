@@ -23,7 +23,7 @@ import type { SolicitudTecnica } from "@/types/api";
 import { clavesMesaAyuda } from "./claves";
 import { CrearSolicitudModal } from "./CrearSolicitudModal";
 import { DetalleSolicitudModal } from "./DetalleSolicitudModal";
-import { ESTADOS_ACTIVOS, MAX_SOLICITUDES_ACTIVAS, nombreTipo } from "./flujo";
+import { ESTADOS_ACTIVOS, HORAS_ENTRE_SOLICITUDES, MAX_SOLICITUDES_ACTIVAS, nombreTipo } from "./flujo";
 import { ProgresoSolicitud } from "./ProgresoSolicitud";
 
 /**
@@ -37,7 +37,7 @@ export function MisSolicitudesTecnicasPage() {
 
   const query = useQuery({
     queryKey: clavesMesaAyuda.misSolicitudes(idUsuario),
-    queryFn: () => solicitudTecnicaService.misSolicitudes(idUsuario!),
+    queryFn: solicitudTecnicaService.misSolicitudes,
     enabled: idUsuario !== undefined,
   });
   const solicitudes = [...(query.data ?? [])].sort((a, b) => b.fechaSolicitud.localeCompare(a.fechaSolicitud));
@@ -68,7 +68,7 @@ export function MisSolicitudesTecnicasPage() {
       <Alert tone={limiteAlcanzado ? "alerta" : "neutro"}>
         {limiteAlcanzado
           ? `Tienes ${activas} solicitudes activas, el máximo permitido. Podrás enviar otra cuando alguna termine.`
-          : `Puedes tener hasta ${MAX_SOLICITUDES_ACTIVAS} solicitudes activas y enviar una del mismo tipo cada 24 horas.`}
+          : `Puedes tener hasta ${MAX_SOLICITUDES_ACTIVAS} solicitudes activas y enviar una del mismo tipo cada ${HORAS_ENTRE_SOLICITUDES} horas.`}
       </Alert>
 
       {query.isPending ? (

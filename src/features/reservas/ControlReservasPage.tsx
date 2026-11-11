@@ -22,7 +22,6 @@ import { usePermiso } from "@/features/auth/usePermiso";
 import { reservaSalasService, salaService } from "@/lib/api/services";
 import { estadoSolicitudReserva } from "@/lib/estados";
 import { formatearDia, hoyISO } from "@/lib/fechas";
-import { useAuthStore } from "@/store/authStore";
 import type { SolicitudReserva, UsoSala } from "@/types/api";
 
 import {
@@ -33,15 +32,15 @@ import {
   SolicitarCambioModal,
 } from "./AccionesReservaModals";
 import { AgendaTable } from "./AgendaTable";
+import { SolicitudesCambioPanel } from "./SolicitudesCambioPanel";
 import { clavesReservas } from "./claves";
 import { profesorPuedeCambiar } from "./reglas";
 
 /**
  * Control de Reservas para Admin y Operador (antes AdminReservationsPage.jsx).
- * Permiso: "reservas.gestionar". El usuario en sesión se envía como idAdmin.
+ * Permiso: "reservas.gestionar". Quien atiende sale de la sesión (backend v4).
  */
 export function ControlReservasPage() {
-  const idAdmin = useAuthStore((s) => s.user?.idUsuario);
   const puedeConfigurarAgenda = usePermiso("agenda.configurar");
 
   const [idSalaElegida, setIdSalaElegida] = useState<number | null>(null);
@@ -73,17 +72,16 @@ export function ControlReservasPage() {
   const agenda = agendaQuery.data ?? [];
   const esPasado = fecha < hoyISO();
   // Pedir el cambio al profesor solo tiene sentido si aún puede modificarla
-  // (hasta el día anterior); después, el admin reasigna directamente.
+  // (hasta el día anterior) y no tiene ya un cambio vigente (CAMBIO_VIGENTE);
+  // si no, el admin reasigna directamente.
   const sePuedePedirCambio = profesorPuedeCambiar(fecha);
-
-  if (idAdmin === undefined) return null;
 
   return (
     <PageContainer>
       <PageHeader
         eyebrow="Administración TIC"
         title="Control de Reservas"
-        description="Atiende solicitudes extraordinarias y ajusta la agenda de cada sala."
+        description="Atiende solicitudes extraordinarias, ajusta la agenda de cada sala y da seguimiento a los cambios pedidos a los profesores."
         actions={
           puedeConfigurarAgenda && (
             <ButtonLink
@@ -225,7 +223,8 @@ export function ControlReservasPage() {
                   ? undefined
                   : (uso) => (
                       <>
-                        {sePuedePedirCambio && (
+                        {/* Un profesor sin cuenta no puede responder: se reasigna directamente */}
+                        {sePuedePedirCambio && !uso.solicitudCambio && !uso.profesorExterno && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -259,22 +258,24 @@ export function ControlReservasPage() {
         </Card>
       </div>
 
-      <AprobarSolicitudModal solicitud={aprobando} salas={salas} idAdmin={idAdmin} onClose={() => setAprobando(null)} />
-      <RechazarSolicitudModal solicitud={rechazando} idAdmin={idAdmin} onClose={() => setRechazando(null)} />
+      <SolicitudesCambioPanel />
+
+      <AprobarSolicitudModal solicitud={aprobando} salas={salas} onClose={() => setAprobando(null)} />
+      <RechazarSolicitudModal solicitud={rechazando} onClose={() => setRechazando(null)} />
       <ReasignarReservaModal
         uso={reasignando}
         fecha={fecha}
         salas={salas}
-        idAdmin={idAdmin}
+       
         onClose={() => setReasignando(null)}
       />
       <SolicitarCambioModal
         uso={pidiendoCambio}
         fecha={fecha}
-        idAdmin={idAdmin}
+       
         onClose={() => setPidiendoCambio(null)}
       />
-      <CancelarReservaModal uso={cancelando} fecha={fecha} idAdmin={idAdmin} onClose={() => setCancelando(null)} />
+      <CancelarReservaModal uso={cancelando} fecha={fecha} onClose={() => setCancelando(null)} />
     </PageContainer>
   );
 }

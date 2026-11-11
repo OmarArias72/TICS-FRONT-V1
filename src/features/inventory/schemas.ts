@@ -36,7 +36,7 @@ export const reporteSchema = z
     fechaInicio: z.string(),
     fechaFin: z.string(),
     articulo: opcional("Artículo", 255),
-    formato: z.enum(["pdf", "csv"]),
+    formato: z.enum(["pdf", "xlsx", "csv"]),
   })
   .superRefine((datos, ctx) => {
     if (datos.fechaInicio && datos.fechaFin && datos.fechaFin < datos.fechaInicio) {

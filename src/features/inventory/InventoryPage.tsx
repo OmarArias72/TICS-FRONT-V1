@@ -74,6 +74,7 @@ export function InventoryPage() {
   const puedeEliminar = usePermiso("inventario.eliminar");
   const puedeEstadoMasivo = usePermiso("inventario.estadoMasivo");
   const puedeDarDeBaja = usePermiso("inventario.darDeBaja");
+  const puedeReactivar = usePermiso("inventario.reactivar");
   const puedeReportes = usePermiso("inventario.reportes");
 
   const [tipo, setTipo] = useState<TipoBusqueda>("global");
@@ -111,9 +112,9 @@ export function InventoryPage() {
     });
   }, [equiposQuery.data, desde, hasta]);
 
-  // El Operador no puede cambiar el estado de un equipo en BAJA.
+  // El Operador da de BAJA, pero no cambia el estado de un equipo que ya está en BAJA.
   const esSeleccionable = (e: EquipoVista) =>
-    puedeEstadoMasivo && (puedeDarDeBaja || e.estado !== "BAJA");
+    puedeEstadoMasivo && (puedeReactivar || e.estado !== "BAJA");
 
   // La selección efectiva son solo los equipos visibles y seleccionables:
   // si una búsqueda oculta equipos marcados, no se modifican por error.
@@ -370,6 +371,7 @@ export function InventoryPage() {
         }}
         equipo={editando}
         puedeDarDeBaja={puedeDarDeBaja}
+        puedeReactivar={puedeReactivar}
         saving={guardar.isPending}
         onSubmit={(values) => guardar.mutate(values)}
       />

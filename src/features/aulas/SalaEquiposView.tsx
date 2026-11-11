@@ -59,8 +59,8 @@ export function SalaEquiposView({
     .filter(
       (ec) =>
         !termino ||
-        ec.equipo.inventario.toLowerCase().includes(termino) ||
-        (ec.equipo.serie ?? "").toLowerCase().includes(termino),
+        ec.inventario.toLowerCase().includes(termino) ||
+        (ec.serie ?? "").toLowerCase().includes(termino),
     )
     .sort(compararPorPrioridad);
   const seleccionado = equipos.find((ec) => ec.idEquipoComputo === idSeleccionado) ?? null;
@@ -143,8 +143,10 @@ export function SalaEquiposView({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-start gap-6">
-        <section aria-label="Equipos de la sala" className="min-w-0 flex-[999_1_520px]">
+      {/* En pantallas grandes: cuadrícula 2/5 del ancho y detalle 3/5, para que
+          el detalle tenga espacio y no se vea comprimido. */}
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <section aria-label="Equipos de la sala" className="min-w-0">
           {cargando ? (
             <p className="text-sm text-sobre-variante">Cargando equipos...</p>
           ) : visibles.length === 0 ? (
@@ -184,7 +186,7 @@ export function SalaEquiposView({
                       )}
                     >
                       <Monitor className={cn("h-7 w-7", TONO_ICONO[estado.tono])} aria-hidden="true" />
-                      <span className="w-full truncate text-[13px] font-extrabold">{ec.equipo.inventario}</span>
+                      <span className="w-full truncate text-[13px] font-extrabold">{ec.inventario}</span>
                       <span className="text-[11px] font-semibold text-sobre-variante">{estado.etiqueta}</span>
                     </button>
                   </motion.li>
@@ -194,7 +196,10 @@ export function SalaEquiposView({
           )}
         </section>
 
-        <div ref={panelRef} className="min-w-0 flex-[1_1_360px] scroll-mt-20 lg:sticky lg:top-20">
+        <div
+          ref={panelRef}
+          className="min-w-0 scroll-mt-20 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:rounded-2xl"
+        >
           {seleccionado ? (
             <EquipoDetalle
               key={seleccionado.idEquipoComputo}

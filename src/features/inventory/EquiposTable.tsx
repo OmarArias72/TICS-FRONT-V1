@@ -1,8 +1,9 @@
 "use client";
 
-import { Pencil, Trash2 } from "lucide-react";
+import { History, Pencil, Trash2 } from "lucide-react";
 
-import { IconButton, StatusBadge, TD, TH, THead, TR, Table, TableMessage } from "@/components/ui";
+import { IconButton, IconLink, StatusBadge, TD, TH, THead, TR, Table, TableMessage } from "@/components/ui";
+import { usePermiso } from "@/features/auth/usePermiso";
 import { cn } from "@/lib/cn";
 import { formatearFecha } from "@/lib/download";
 import { estadoEquipo } from "@/lib/estados";
@@ -38,6 +39,7 @@ export function EquiposTable({
   onEditar,
   onEliminar,
 }: EquiposTableProps) {
+  const puedeVerHistorial = usePermiso("bitacora.equipos");
   const seleccionables = equipos.filter(esSeleccionable);
   const todosMarcados =
     seleccionables.length > 0 && seleccionables.every((e) => seleccionados.has(e.inventario));
@@ -105,11 +107,22 @@ export function EquiposTable({
                 <TD>
                   <div className="flex flex-col items-start gap-1">
                     <StatusBadge {...estadoEquipo(e.estado)} />
-                    <span className="text-xs text-sobre-variante">{formatearFecha(e.fechaRegistro)}</span>
+                    <span className="text-xs text-sobre-variante">
+                      {formatearFecha(e.fechaRegistro)}
+                      {e.registradoPor && <span className="block">por {e.registradoPor}</span>}
+                    </span>
                   </div>
                 </TD>
                 <TD>
                   <div className="flex justify-end gap-2">
+                    {puedeVerHistorial && (
+                      <IconLink
+                        label={`Historial de ${e.inventario}`}
+                        size="sm"
+                        href={`/admin/bitacora?inventario=${encodeURIComponent(e.inventario)}`}
+                        icon={<History className="h-4 w-4" aria-hidden="true" />}
+                      />
+                    )}
                     {puedeEditar && (
                       <IconButton
                         label={`Editar ${e.inventario}`}
