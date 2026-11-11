@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { House, LogOut, Menu, X } from "lucide-react";
+import { House, LogOut, Menu, UserRound, X } from "lucide-react";
 
 import { NotificacionesBell } from "@/features/notificaciones/NotificacionesBell";
 import { enlacesDeMenu } from "@/lib/auth/roles";
+
+import { iconoDeRuta } from "./iconosMenu";
 import { cerrarSesion, useAuthStore } from "@/store/authStore";
 
 function Logo() {
@@ -50,6 +52,10 @@ export function NavBar() {
 
   const cerrarMenu = () => setIsOpen(false);
 
+  // Formulario de una solicitud externa: quien llega no tiene cuenta, así que el
+  // encabezado es otro (sin menú, sesión ni registro) para no confundirlo.
+  if (pathname === "/formulario-externo") return <EncabezadoExterno />;
+
   // "/" solo se marca activo en la portada; las demás rutas incluyen sus subrutas.
   const claseEnlace = (href: string) => {
     const activo =
@@ -84,7 +90,13 @@ export function NavBar() {
 
             {hasHydrated && user && (
               <div className="flex items-center gap-2.5 text-sm">
-                <span className="hidden text-verde-claro sm:inline">{nombreCompleto}</span>
+                <Link
+                  href="/perfil"
+                  title="Mi perfil"
+                  className="hidden rounded-lg px-1.5 py-1 text-verde-claro transition-colors hover:text-white hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-dorado sm:inline"
+                >
+                  {nombreCompleto}
+                </Link>
                 <span
                   className={`hidden rounded-full px-2.5 py-0.5 text-[11px] font-extrabold uppercase sm:inline ${
                     rol === "Admin" ? "bg-dorado text-dorado-oscuro" : "bg-verde-claro text-verde-oscuro"
@@ -162,16 +174,24 @@ export function NavBar() {
                   <House className="h-4 w-4" aria-hidden="true" />
                   Inicio
                 </Link>
-                {enlacesPrincipales.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={cerrarMenu}
-                    className={claseEnlace(item.href)}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+                <Link href="/perfil" onClick={cerrarMenu} className={claseEnlace("/perfil")}>
+                  <UserRound className="h-4 w-4" aria-hidden="true" />
+                  Mi perfil
+                </Link>
+                {enlacesPrincipales.map((item) => {
+                  const Icono = iconoDeRuta(item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={cerrarMenu}
+                      className={claseEnlace(item.href)}
+                    >
+                      <Icono className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
               </div>
 
               {enlacesAdmin.length > 0 && (
@@ -179,16 +199,20 @@ export function NavBar() {
                   <span className="block px-6 py-1 text-[10px] font-bold uppercase tracking-wider text-dorado-texto">
                     Administración TIC
                   </span>
-                  {enlacesAdmin.map((item) => (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={cerrarMenu}
-                      className={`${claseEnlace(item.href)} py-2.5 text-xs`}
-                    >
-                      {item.label}
-                    </Link>
-                  ))}
+                  {enlacesAdmin.map((item) => {
+                    const Icono = iconoDeRuta(item.href);
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={cerrarMenu}
+                        className={`${claseEnlace(item.href)} py-2.5 text-xs`}
+                      >
+                        <Icono className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -196,7 +220,7 @@ export function NavBar() {
             <div className="border-t border-variante bg-white p-4">
               <button
                 type="button"
-                onClick={cerrarSesion}
+                onClick={() => void cerrarSesion()}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-error-claro py-2.5 text-xs font-bold text-error-oscuro transition-colors hover:bg-error hover:text-white"
               >
                 <LogOut className="h-4 w-4" aria-hidden="true" />
@@ -207,5 +231,22 @@ export function NavBar() {
         </div>
       )}
     </>
+  );
+}
+
+/** Encabezado del formulario externo (`/formulario-externo`), para personas sin cuenta. */
+function EncabezadoExterno() {
+  return (
+    <header className="sticky top-0 z-40 w-full border-b-4 border-dorado bg-verde-oscuro text-superficie shadow-md">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-2 text-lg font-extrabold tracking-tight">
+          <span className="h-2.5 w-2.5 rounded-full bg-dorado" aria-hidden="true" />
+          Área de <span className="text-dorado">TIC</span>
+        </div>
+        <span className="rounded-full bg-dorado px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.06em] text-dorado-oscuro">
+          Formulario de solicitud
+        </span>
+      </div>
+    </header>
   );
 }

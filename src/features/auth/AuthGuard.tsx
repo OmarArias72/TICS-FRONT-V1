@@ -16,8 +16,8 @@ type Acceso = "verificando" | "sin-sesion" | "sin-permiso" | "permitido";
  *   de React Router, que no existe en Next.js).
  * - Con sesión pero sin rol permitido: envía a /unauthorized.
  *
- * Mientras la sesión no se ha leído de localStorage muestra un indicador de
- * carga, para no redirigir por error a un usuario que sí tiene sesión.
+ * Mientras `GET /api/auth/me` no responde muestra un indicador de carga, para
+ * no redirigir por error a un usuario que sí tiene sesión.
  */
 export function AuthGuard({ children }: { children: ReactNode }) {
   const router = useRouter();

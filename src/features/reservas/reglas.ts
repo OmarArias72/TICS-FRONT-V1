@@ -15,7 +15,7 @@ import type { UsoSala } from "@/types/api";
 export const MAX_DIAS_ANTICIPACION = 30;
 
 /** Estados de un uso de sala que ocupan el horario (igual que el backend). */
-const ESTADOS_QUE_OCUPAN = new Set(["Confirmada", "Reservada"]);
+const ESTADOS_QUE_OCUPAN = new Set(["Confirmada", "Reservada", "Reasignada"]);
 
 export interface Horario {
   fecha: string;
@@ -51,7 +51,12 @@ export function empalmes(horario: Horario, agenda: UsoSala[]): UsoSala[] {
 }
 
 /** Decide si un horario admite reserva directa, solo solicitud o ninguna. */
-export function evaluarHorario(horario: Horario, agenda: UsoSala[]): Evaluacion {
+export function evaluarHorario(
+  horario: Horario,
+  agenda: UsoSala[],
+  /** El Admin no tiene el límite de 30 días (backend v4). */
+  sinLimiteAnticipacion = false,
+): Evaluacion {
   const { fecha, horaInicio, horaFin } = horario;
   if (!fecha || !horaInicio || !horaFin) {
     return { tipo: "invalido", motivo: "Completa la fecha y el horario." };
@@ -63,7 +68,7 @@ export function evaluarHorario(horario: Horario, agenda: UsoSala[]): Evaluacion 
   if (fecha < hoy || (fecha === hoy && horaInicio <= horaActual())) {
     return { tipo: "invalido", motivo: "No se puede reservar en una fecha u hora que ya pasó." };
   }
-  if (fecha > fechaMaxima()) {
+  if (!sinLimiteAnticipacion && fecha > fechaMaxima()) {
     return {
       tipo: "solicitud",
       motivo: `Las reservas directas se permiten hasta ${MAX_DIAS_ANTICIPACION} días adelante.`,

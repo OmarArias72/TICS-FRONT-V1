@@ -1,5 +1,4 @@
 import type { IsoDateTime, ValorConocido } from "./common";
-import type { Sala } from "./sala";
 
 /**
  * Contratos del módulo `inventario`:
@@ -24,6 +23,11 @@ export interface EquipoVista {
   fechaRegistro: IsoDateTime | null;
   fechaActualizacion: IsoDateTime | null;
   estado: EstadoEquipo;
+  /** Quién registró el equipo (null en equipos anteriores al registro de autor). */
+  registradoPorId: number | null;
+  registradoPor: string | null;
+  /** Última persona que lo modificó. */
+  actualizadoPor: string | null;
 }
 
 /**
@@ -40,13 +44,12 @@ export interface EquipoCreateRequest {
   cantidad?: number | null;
   caracteristicas?: string | null;
   estado?: EstadoEquipo | null;
-}
-
-/** EquipoMovilCreate: alta desde la app móvil (incluye bitácora). */
-export interface EquipoMovilCreate extends EquipoCreateRequest {
-  idUsuario: number;
+  /** Nota que queda en la bitácora del equipo. */
   observacion?: string | null;
 }
+
+/** EquipoMovilCreate: alta desde la app móvil. El usuario sale de la sesión. */
+export type EquipoMovilCreate = EquipoCreateRequest;
 
 /** BusquedaRequest: cuerpo de los endpoints `buscar-*`. */
 export interface BusquedaRequest {
@@ -57,6 +60,7 @@ export interface BusquedaRequest {
 export interface ActualizarEstadoMasivoRequest {
   inventarios: string[];
   nuevoEstado: EstadoEquipo;
+  observacion?: string | null;
 }
 
 /** Criterio de agrupación de `GET /inventory/conteo`. */
@@ -72,7 +76,7 @@ export interface ConteoInventario {
   mantenimiento: number;
 }
 
-/** Filtros opcionales de los reportes PDF y CSV. */
+/** Filtros opcionales de los reportes PDF, XLSX y CSV. */
 export interface FiltrosReporte {
   fechaInicio?: string;
   fechaFin?: string;
@@ -89,9 +93,15 @@ export type EstadoComputadora = ValorConocido<
   "Funcionando" | "No funciona" | "Requiere revisión" | "Requiere Mantenimiento"
 >;
 
-/** Valores válidos según los CHECK de la base de datos. */
+/** Valores válidos según `GET /api/catalogos/equipos` (los CHECK de la BD). */
 export type EstadoTeclado = ValorConocido<
-  "Bueno" | "Teclas dañadas" | "Teclas faltantes" | "Sin respuesta" | "Cable dañado" | "Dañado"
+  | "Bueno"
+  | "Teclas dañadas"
+  | "Teclas faltantes"
+  | "Algunas teclas no responden"
+  | "Sin respuesta"
+  | "Cable dañado"
+  | "Dañado"
 >;
 export type EstadoMouse = ValorConocido<
   "Bueno" | "Clic dañado" | "Scroll dañado" | "Sin respuesta" | "Cable dañado" | "Dañado"
@@ -109,36 +119,7 @@ export type EstadoMonitor = ValorConocido<
   | "Dañado"
 >;
 
-interface Articulo {
-  idArticulo: number;
-  nombreArticulo: string;
-}
-
-interface Marca {
-  idMarca: number;
-  nombreMarca: string;
-}
-
-interface Modelo {
-  idModelo: number;
-  nombreModelo: string;
-  marca: Marca;
-}
-
-/** Entidad `Equipo` anidada dentro de `EquipoComputo`. */
-export interface EquipoBase {
-  inventario: string;
-  articulo: Articulo;
-  modelo: Modelo;
-  serie: string | null;
-  cantidad: number | null;
-  caracteristicas: string | null;
-  estado: EstadoEquipo;
-  fechaRegistro: IsoDateTime | null;
-  fechaActualizacion: IsoDateTime | null;
-}
-
-/** Campos técnicos comunes a la entidad y al request. */
+/** Campos técnicos comunes a la respuesta y al request. */
 interface DetalleTecnico {
   especificacionesHardware: string | null;
   sistemaOperativo: string | null;
@@ -150,30 +131,52 @@ interface DetalleTecnico {
   procesador: string | null;
   ram: string | null;
   almacenamiento: string | null;
-  contrasena: string | null;
-  passwordAdmin: string | null;
-  lastPassword: string | null;
   estadoCpu: EstadoCpu | null;
   estadoComputadora: EstadoComputadora | null;
   observaciones: string | null;
-  ultimoUsuarioActualizacion: number | null;
 }
 
 /**
- * Entidad `EquipoComputo`. Los GET de `/equipos-computo` devuelven la entidad
- * JPA tal cual (no el EquipoComputoResponse aplanado), con `equipo` y `sala`
- * anidados.
+ * EquipoComputoResponse (backend v4): plano y sin contraseñas. Para verlas
+ * se pide `GET /equipos-computo/{id}/contrasenas`, que queda en la bitácora.
  */
 export interface EquipoComputo extends DetalleTecnico {
   idEquipoComputo: number;
-  equipo: EquipoBase;
-  /** Relación LAZY en el backend: puede llegar nula. */
-  sala: Sala | null;
+  inventario: string;
+  serie: string | null;
+  cantidad: number | null;
+  caracteristicas: string | null;
+  estado: EstadoEquipo;
+  nombreArticulo: string;
+  nombreMarca: string;
+  nombreModelo: string;
+  idSala: number | null;
+  codigoSala: string | null;
+  nombreSala: string | null;
+  tieneContrasena: boolean;
+  tieneUltimaContrasena: boolean;
+  fechaCambioContrasena: IsoDateTime | null;
+  ultimoUsuarioActualizacion: number | null;
+  ultimoUsuarioActualizacionNombre: string | null;
+  /** Quién registró el equipo base. */
+  registradoPor: string | null;
   fechaRegistro: IsoDateTime | null;
   fechaActualizacion: IsoDateTime | null;
 }
 
-/** EquipoComputoRequest: crea o actualiza equipo base y detalle técnico. */
+/** ContrasenasEquipoDTO: la actual y la anterior (la anterior pasa sola a "última"). */
+export interface ContrasenasEquipo {
+  inventario: string;
+  contrasena: string | null;
+  ultimaContrasena: string | null;
+  fechaCambioContrasena: IsoDateTime | null;
+}
+
+/**
+ * EquipoComputoRequest: crea o actualiza equipo base y detalle técnico.
+ * `contrasena` solo se envía si cambia; `borrarContrasena` la quita.
+ * El usuario que actualiza sale de la sesión.
+ */
 export interface EquipoComputoRequest extends Partial<DetalleTecnico> {
   idEquipoComputo?: number | null;
   inventario: string;
@@ -185,4 +188,8 @@ export interface EquipoComputoRequest extends Partial<DetalleTecnico> {
   caracteristicas?: string | null;
   estado?: EstadoEquipo | null;
   idSala?: number | null;
+  contrasena?: string | null;
+  borrarContrasena?: boolean;
+  /** Nota que queda en la bitácora del equipo. */
+  motivoCambio?: string | null;
 }

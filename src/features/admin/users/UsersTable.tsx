@@ -1,9 +1,10 @@
 "use client";
 
-import { Pencil, Trash2 } from "lucide-react";
+import { LockOpen, MailCheck, MailWarning, Pencil, Trash2 } from "lucide-react";
 
 import { IconButton, StatusBadge, TD, TH, THead, TR, Table, TableMessage } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { formatearFecha } from "@/lib/fechas";
 import type { Tono } from "@/lib/estados";
 import type { NombreRol, Usuario } from "@/types/api";
 
@@ -24,6 +25,9 @@ interface UsersTableProps {
   onEditar: (usuario: Usuario) => void;
   onEliminar: (usuario: Usuario) => void;
   onCambiarEstado: (usuario: Usuario) => void;
+  /** id del usuario que se está desbloqueando. */
+  idDesbloqueando: number | null;
+  onDesbloquear: (usuario: Usuario) => void;
 }
 
 const MOTIVO_PROPIO = "No puedes desactivar ni eliminar tu propia cuenta";
@@ -37,29 +41,32 @@ export function UsersTable({
   onEditar,
   onEliminar,
   onCambiarEstado,
+  idDesbloqueando,
+  onDesbloquear,
 }: UsersTableProps) {
   return (
-    <Table minWidth={820}>
+    <Table minWidth={980}>
       <THead>
         <tr>
           <TH>Nombre completo</TH>
           <TH>Correo</TH>
           <TH>Rol</TH>
           <TH>Estado</TH>
+          <TH>Último acceso</TH>
           <TH className="text-right">Acciones</TH>
         </tr>
       </THead>
       <tbody>
         {cargando ? (
-          <TableMessage colSpan={5} loading>
+          <TableMessage colSpan={6} loading>
             Cargando usuarios...
           </TableMessage>
         ) : error ? (
-          <TableMessage colSpan={5} tone="error">
+          <TableMessage colSpan={6} tone="error">
             {error}
           </TableMessage>
         ) : usuarios.length === 0 ? (
-          <TableMessage colSpan={5}>No se encontraron usuarios con esos criterios.</TableMessage>
+          <TableMessage colSpan={6}>No se encontraron usuarios con esos criterios.</TableMessage>
         ) : (
           usuarios.map((u) => {
             const esPropio = u.idUsuario === idUsuarioActual;
@@ -77,7 +84,20 @@ export function UsersTable({
                     )}
                   </div>
                 </TD>
-                <TD className="text-sobre-variante">{u.correo}</TD>
+                <TD>
+                  <span className="text-sobre-variante">{u.correo}</span>
+                  {u.correoVerificado === false ? (
+                    <span className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-alerta">
+                      <MailWarning className="h-3.5 w-3.5" aria-hidden="true" />
+                      Correo sin verificar
+                    </span>
+                  ) : (
+                    <span className="mt-0.5 flex items-center gap-1 text-xs text-verde">
+                      <MailCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                      Verificado
+                    </span>
+                  )}
+                </TD>
                 <TD>
                   <StatusBadge tono={TONO_ROL[u.nombreRol] ?? "neutro"} etiqueta={u.nombreRol} />
                 </TD>
@@ -111,8 +131,20 @@ export function UsersTable({
                     />
                   </div>
                 </TD>
+                <TD className="whitespace-nowrap text-[13px] text-sobre-variante">
+                  {u.ultimoAcceso ? formatearFecha(u.ultimoAcceso) : "Nunca"}
+                </TD>
                 <TD>
                   <div className="flex justify-end gap-2">
+                    {!esPropio && (
+                      <IconButton
+                        label={`Quitar bloqueo por intentos fallidos a ${nombre}`}
+                        size="sm"
+                        disabled={idDesbloqueando === u.idUsuario}
+                        icon={<LockOpen className="h-4 w-4" aria-hidden="true" />}
+                        onClick={() => onDesbloquear(u)}
+                      />
+                    )}
                     <IconButton
                       label={`Editar a ${nombre}`}
                       size="sm"

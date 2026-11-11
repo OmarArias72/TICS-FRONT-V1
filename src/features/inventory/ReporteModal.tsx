@@ -77,10 +77,11 @@ function ReporteForm({
     onDescargando(true);
     try {
       const filtroArticulo = articulo.trim() || undefined;
-      const blob =
-        formato === "pdf"
-          ? await inventoryService.descargarReportePdf(fechaInicio || undefined, fechaFin || undefined, filtroArticulo)
-          : await inventoryService.descargarReporteCsv(fechaInicio || undefined, fechaFin || undefined, filtroArticulo);
+      const blob = await inventoryService.descargarReporte(formato, {
+        fechaInicio: fechaInicio || undefined,
+        fechaFin: fechaFin || undefined,
+        articulo: filtroArticulo,
+      });
       descargarArchivo(blob, `reporte_equipos_${hoyISO()}.${formato}`);
       toast.success(`Reporte ${formato.toUpperCase()} descargado`);
       onListo();
@@ -109,13 +110,13 @@ function ReporteForm({
           Formato
         </legend>
         <div className="flex gap-3">
-          {(["pdf", "csv"] as const).map((formato) => (
+          {(["pdf", "xlsx", "csv"] as const).map((formato) => (
             <label
               key={formato}
               className="flex h-11 flex-1 cursor-pointer items-center gap-2.5 rounded-xl border border-outline px-3 text-sm font-semibold has-checked:border-verde has-checked:bg-verde-claro/40"
             >
               <input type="radio" value={formato} className="h-4 w-4 accent-verde" {...register("formato")} />
-              {formato.toUpperCase()}
+              {formato === "xlsx" ? "Excel" : formato.toUpperCase()}
             </label>
           ))}
         </div>

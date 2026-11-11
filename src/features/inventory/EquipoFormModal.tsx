@@ -16,8 +16,10 @@ interface EquipoFormModalProps {
   onClose: () => void;
   /** Equipo a editar; `null` para registrar uno nuevo. */
   equipo: EquipoVista | null;
-  /** Permiso "inventario.darDeBaja" (solo Admin). */
+  /** Permiso "inventario.darDeBaja" (Admin y Operador). */
   puedeDarDeBaja: boolean;
+  /** Permiso "inventario.reactivar" (solo Admin): sacar un equipo de BAJA. */
+  puedeReactivar: boolean;
   saving: boolean;
   onSubmit: (values: EquipoFormValues) => void;
 }
@@ -28,6 +30,7 @@ export function EquipoFormModal({
   onClose,
   equipo,
   puedeDarDeBaja,
+  puedeReactivar,
   saving,
   onSubmit,
 }: EquipoFormModalProps) {
@@ -59,6 +62,7 @@ export function EquipoFormModal({
           key={equipo?.inventario ?? "nuevo"}
           equipo={equipo}
           puedeDarDeBaja={puedeDarDeBaja}
+          puedeReactivar={puedeReactivar}
           onSubmit={onSubmit}
         />
       )}
@@ -84,14 +88,15 @@ function valoresIniciales(equipo: EquipoVista | null): EquipoFormValues {
 function EquipoForm({
   equipo,
   puedeDarDeBaja,
+  puedeReactivar,
   onSubmit,
-}: Pick<EquipoFormModalProps, "equipo" | "puedeDarDeBaja" | "onSubmit">) {
+}: Pick<EquipoFormModalProps, "equipo" | "puedeDarDeBaja" | "puedeReactivar" | "onSubmit">) {
   const editando = equipo !== null;
   const [iniciales] = useState(() => valoresIniciales(equipo));
 
-  // Regla 2026-10-30: el Operador no da de BAJA y, si el equipo ya está en
-  // BAJA, puede corregir sus datos pero no cambiar el estado.
-  const bloqueadoEnBaja = !puedeDarDeBaja && iniciales.estado === "BAJA";
+  // Regla 2026-11-06: el Operador sí da de BAJA; si el equipo ya está en BAJA,
+  // puede corregir sus datos pero no reactivarlo (solo el Admin).
+  const bloqueadoEnBaja = !puedeReactivar && iniciales.estado === "BAJA";
   const estadosDisponibles = ESTADOS_EQUIPO.filter((e) => puedeDarDeBaja || e !== "BAJA");
 
   const {

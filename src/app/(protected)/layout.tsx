@@ -8,7 +8,7 @@ import { AuthGuard } from "@/features/auth/AuthGuard";
  * aparece en la URL: /aulas sigue siendo /aulas.
  *
  * El layout es un Server Component; solo el guard se ejecuta en el cliente,
- * porque la sesión vive en localStorage.
+ * porque la sesión se comprueba con GET /api/auth/me (cookies httpOnly).
  */
 export default function ProtectedLayout({ children }: { children: ReactNode }) {
   return (

@@ -2,13 +2,13 @@ import type { EquipoComputo, EstadoComputadora } from "@/types/api";
 
 /**
  * Utilidades del Mapa de Aulas (antes ClassroomMapPage.jsx y
- * RoomDetailsHubModal.jsx). Se trabaja con la entidad del backend tal cual;
- * el original la copiaba a un objeto con nombres en snake_case.
+ * RoomDetailsHubModal.jsx). Se trabaja con EquipoComputoResponse del backend
+ * v4, que ya llega plano.
  */
 
 /** Opciones válidas según los CHECK de la base de datos. */
 export const OPCIONES = {
-  teclado: ["Bueno", "Teclas dañadas", "Teclas faltantes", "Sin respuesta", "Cable dañado", "Dañado"],
+  teclado: ["Bueno", "Teclas dañadas", "Teclas faltantes", "Algunas teclas no responden", "Sin respuesta", "Cable dañado", "Dañado"],
   mouse: ["Bueno", "Clic dañado", "Scroll dañado", "Sin respuesta", "Cable dañado", "Dañado"],
   monitor: ["Bueno", "Sin imagen", "Imagen distorsionada", "Píxeles muertos", "Pantalla rayada", "Pantalla rota", "Dañado"],
   ethernet: ["Bueno", "Conector dañado", "Cable cortado", "Sin conexión", "Dañado"],
@@ -48,7 +48,7 @@ const PRIORIDAD: Record<string, number> = {
 export function compararPorPrioridad(a: EquipoComputo, b: EquipoComputo): number {
   return (
     (PRIORIDAD[estadoPc(b)] ?? 0) - (PRIORIDAD[estadoPc(a)] ?? 0) ||
-    a.equipo.inventario.localeCompare(b.equipo.inventario, "es", { numeric: true })
+    a.inventario.localeCompare(b.inventario, "es", { numeric: true })
   );
 }
 
@@ -72,8 +72,8 @@ export function contarEquipos(equipos: EquipoComputo[]): ConteoSala {
 export function agruparPorSala(equipos: EquipoComputo[]): Map<number, EquipoComputo[]> {
   const mapa = new Map<number, EquipoComputo[]>();
   for (const ec of equipos) {
-    const id = ec.sala?.idSala;
-    if (id === undefined) continue;
+    const id = ec.idSala;
+    if (id === null) continue;
     const lista = mapa.get(id);
     if (lista) lista.push(ec);
     else mapa.set(id, [ec]);

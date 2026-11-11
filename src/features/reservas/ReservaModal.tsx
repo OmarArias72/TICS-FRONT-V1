@@ -23,6 +23,8 @@ const reservaSchema = z.object({
   horaFin: z.string().min(1, "Elige la hora de fin"),
   proposito: z.string().max(255, "Máximo 255 caracteres"),
   justificacion: z.string().max(1000, "Máximo 1000 caracteres"),
+  /** Solo Admin: profesor sin cuenta para quien se registra la reserva. */
+  profesorExterno: z.string().trim().max(150, "Máximo 150 caracteres"),
 });
 
 type ReservaFormValues = z.infer<typeof reservaSchema>;
@@ -71,6 +73,7 @@ function ReservaForm({ sala, fechaInicial, onClose }: { sala: Sala; fechaInicial
     horaFin: "",
     proposito: "",
     justificacion: "",
+    profesorExterno: "",
   }));
 
   const {
@@ -89,7 +92,8 @@ function ReservaForm({ sala, fechaInicial, onClose }: { sala: Sala; fechaInicial
     enabled: Boolean(fecha),
   });
 
-  const evaluacion = evaluarHorario({ fecha, horaInicio, horaFin }, agendaQuery.data ?? []);
+  const esAdmin = useAuthStore((s) => s.user?.nombreRol === "Admin");
+  const evaluacion = evaluarHorario({ fecha, horaInicio, horaFin }, agendaQuery.data ?? [], esAdmin);
   const modo: "directa" | "solicitud" =
     evaluacion.tipo === "solicitud" || rechazoDirecta ? "solicitud" : "directa";
   const motivoSolicitud = rechazoDirecta ?? (evaluacion.tipo === "solicitud" ? evaluacion.motivo : null);
@@ -98,13 +102,15 @@ function ReservaForm({ sala, fechaInicial, onClose }: { sala: Sala; fechaInicial
     void queryClient.invalidateQueries({ queryKey: clavesReservas.agenda() });
     void queryClient.invalidateQueries({ queryKey: clavesReservas.misSolicitudes(idUsuario) });
     void queryClient.invalidateQueries({ queryKey: clavesReservas.pendientes });
+    void queryClient.invalidateQueries({ queryKey: clavesReservas.misReservas() });
     toast.success(mensaje);
     onClose();
   };
 
   const directa = useMutation({
     mutationFn: reservaSalasService.registrarReservaDirecta,
-    onSuccess: () => alTerminar("Reserva confirmada"),
+    onSuccess: (r) =>
+      alTerminar(r.profesorExterno ? `Reserva confirmada a nombre de ${r.profesorExterno}` : "Reserva confirmada"),
     onError: (err: Error) => {
       setRechazoDirecta(err.message);
       void agendaQuery.refetch();
@@ -118,14 +124,17 @@ function ReservaForm({ sala, fechaInicial, onClose }: { sala: Sala; fechaInicial
   });
 
   const enviar = (values: ReservaFormValues) => {
-    if (!idUsuario) return;
     if (evaluacion.tipo === "invalido") {
       setError("root", { message: evaluacion.motivo });
       return;
     }
-    const base = { idSala: sala.idSala, idUsuario, fecha: values.fecha, horaInicio: values.horaInicio, horaFin: values.horaFin };
+    const base = { idSala: sala.idSala, fecha: values.fecha, horaInicio: values.horaInicio, horaFin: values.horaFin };
     if (modo === "directa") {
-      directa.mutate({ ...base, proposito: values.proposito.trim() });
+      directa.mutate({
+        ...base,
+        proposito: values.proposito.trim(),
+        profesorExterno: esAdmin && values.profesorExterno ? values.profesorExterno : null,
+      });
     } else {
       if (!values.justificacion.trim()) {
         setError("justificacion", { message: "Explica por qué necesitas este horario" });
@@ -198,9 +207,20 @@ function ReservaForm({ sala, fechaInicial, onClose }: { sala: Sala; fechaInicial
       {errors.root?.message && <Alert tone="error">{errors.root.message}</Alert>}
 
       {modo === "directa" ? (
-        <FormField label="Propósito" error={errors.proposito?.message} hint="Por ejemplo: Clase de Programación Estructurada">
-          {(a11y) => <Input {...a11y} autoComplete="off" {...register("proposito")} />}
-        </FormField>
+        <>
+          <FormField label="Propósito" error={errors.proposito?.message} hint="Por ejemplo: Clase de Programación Estructurada">
+            {(a11y) => <Input {...a11y} autoComplete="off" {...register("proposito")} />}
+          </FormField>
+          {esAdmin && (
+            <FormField
+              label="Profesor sin cuenta (opcional)"
+              error={errors.profesorExterno?.message}
+              hint="Si reservas para un profesor que no está registrado en la plataforma, escribe su nombre. La reserva queda a tu cargo: la verás y la podrás modificar en Mis reservas."
+            >
+              {(a11y) => <Input {...a11y} autoComplete="off" placeholder="Nombre completo del profesor" {...register("profesorExterno")} />}
+            </FormField>
+          )}
+        </>
       ) : (
         <FormField
           label="Justificación"

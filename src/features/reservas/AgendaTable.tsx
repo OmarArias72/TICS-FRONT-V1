@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import { StatusBadge, TD, TH, THead, TR, Table, TableMessage } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { estadoUsoSala } from "@/lib/estados";
+import { estadoSolicitudCambio, estadoUsoSala } from "@/lib/estados";
 import type { UsoSala } from "@/types/api";
 
 interface AgendaTableProps {
@@ -54,10 +54,26 @@ export function AgendaTable({ agenda, cargando, error, vacio, acciones }: Agenda
                 <TD className={cn("whitespace-nowrap font-extrabold", cancelada && "line-through")}>
                   {uso.horaInicio} – {uso.horaFin}
                 </TD>
-                <TD>{uso.profesor}</TD>
+                <TD>
+                  {uso.profesor}
+                  {uso.profesorExterno && (
+                    <span className="block text-[12px] text-sobre-variante" title={`Registrada por ${uso.registradaPor}`}>
+                      Sin cuenta · registró {uso.registradaPor}
+                    </span>
+                  )}
+                </TD>
                 <TD className="text-sobre-variante">{uso.proposito || "—"}</TD>
                 <TD>
-                  <StatusBadge {...estadoUsoSala(uso.estado)} />
+                  <div className="flex flex-col items-start gap-1">
+                    <StatusBadge {...estadoUsoSala(uso.estado)} />
+                    {/* En Control de Reservas: solicitud de cambio vigente al profesor */}
+                    {acciones && uso.solicitudCambio && (
+                      <StatusBadge
+                        tono={estadoSolicitudCambio(uso.solicitudCambio.estado).tono}
+                        etiqueta={`Cambio: ${estadoSolicitudCambio(uso.solicitudCambio.estado).etiqueta.toLowerCase()}`}
+                      />
+                    )}
+                  </div>
                 </TD>
                 {acciones && (
                   <TD>

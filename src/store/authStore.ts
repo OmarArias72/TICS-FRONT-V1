@@ -1,94 +1,99 @@
 import { create } from "zustand";
-import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
+import { toast } from "react-hot-toast";
 
-import { usuarioService } from "@/lib/api/services";
+import { alExpirarSesion } from "@/lib/api/client";
+import { ApiError } from "@/lib/api/errors";
+import { authService } from "@/lib/api/services";
 import type { Usuario } from "@/types/api";
 
-type ResultadoLogin = { success: true; user: Usuario } | { success: false; message: string };
-
-/**
- * Almacenamiento vacío para el servidor. Durante el prerenderizado no existe
- * `window`, y Node 26 incluye un `localStorage` global experimental que emite
- * una advertencia si se toca; con esto el servidor nunca lo usa.
- */
-const almacenamientoServidor: StateStorage = {
-  getItem: () => null,
-  setItem: () => {},
-  removeItem: () => {},
-};
-
-const obtenerAlmacenamiento = (): StateStorage =>
-  typeof window === "undefined" ? almacenamientoServidor : window.localStorage;
+type ResultadoLogin = { success: true; user: Usuario } | { success: false; error: ApiError };
 
 interface AuthState {
   user: Usuario | null;
   /**
-   * `false` hasta que se lee la sesión guardada en el navegador.
-   * El servidor nunca tiene acceso a localStorage, así que mientras sea `false`
-   * los componentes no deben decidir si hay o no sesión.
+   * `false` hasta que `GET /api/auth/me` responde. Mientras sea `false` los
+   * componentes no deben decidir si hay o no sesión. (Se conserva el nombre
+   * de la versión con localStorage para no cambiar a quien lo lee.)
    */
   hasHydrated: boolean;
   login: (email: string, password: string) => Promise<ResultadoLogin>;
-  logout: () => void;
-  setHasHydrated: (value: boolean) => void;
+  /** Consulta la sesión de las cookies; se llama una vez al cargar la app. */
+  verificarSesion: () => Promise<void>;
+  /** Reemplaza los datos del usuario (por ejemplo, tras editar el perfil). */
+  setUser: (user: Usuario | null) => void;
 }
 
+/** Clave que usaba la versión anterior para guardar el usuario en localStorage. */
+const CLAVE_ANTIGUA = "tic-auth";
+
 /**
- * Sesión del usuario, persistida en localStorage.
+ * Sesión del usuario (backend v4).
  *
- * Diferencia con el original: allí el store leía localStorage al importarse,
- * lo que en Next.js se ejecuta también en el servidor y provoca diferencias
- * entre el HTML del servidor y el del navegador. Aquí `skipHydration` retrasa
- * la lectura hasta que `Providers` llama a `rehydrate()` en el navegador.
+ * El backend guarda la sesión en cookies httpOnly; aquí solo vive en memoria
+ * el usuario que devuelve `/auth/login` o `/auth/me`. Ya no se usa
+ * localStorage: el navegador no puede leer el token y nadie puede fingir una
+ * sesión editando el almacenamiento.
  */
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      user: null,
-      hasHydrated: false,
+export const useAuthStore = create<AuthState>()((set, get) => ({
+  user: null,
+  hasHydrated: false,
 
-      login: async (email, password) => {
-        try {
-          const user = await usuarioService.login({ email, password });
-          set({ user });
-          return { success: true, user };
-        } catch (error) {
-          const message = error instanceof Error ? error.message : "Error al iniciar sesión";
-          return { success: false, message };
-        }
-      },
+  login: async (email, password) => {
+    try {
+      const { usuario } = await authService.login({ email, password });
+      set({ user: usuario, hasHydrated: true });
+      return { success: true, user: usuario };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof ApiError ? error : new ApiError("Error al iniciar sesión", null),
+      };
+    }
+  },
 
-      logout: () => set({ user: null }),
+  verificarSesion: async () => {
+    try {
+      window.localStorage.removeItem(CLAVE_ANTIGUA);
+    } catch {
+      // Almacenamiento bloqueado: no importa, ya no se usa.
+    }
+    try {
+      const { usuario } = await authService.sesionActual();
+      set({ user: usuario, hasHydrated: true });
+    } catch {
+      set({ user: null, hasHydrated: true });
+    }
+    // Si el refresh token también vence a mitad del uso, se cierra la sesión
+    // y AuthGuard envía a /login?next=... con la ruta actual.
+    alExpirarSesion(() => {
+      if (get().user) {
+        set({ user: null });
+        toast.error("Tu sesión expiró. Inicia sesión de nuevo.");
+      }
+    });
+  },
 
-      setHasHydrated: (value) => set({ hasHydrated: value }),
-    }),
-    {
-      name: "tic-auth",
-      storage: createJSONStorage(obtenerAlmacenamiento),
-      // Solo se guarda el usuario; las funciones y banderas no se persisten.
-      partialize: (state) => ({ user: state.user }),
-      skipHydration: true,
-      // Se marca como leída aunque falle (por ejemplo, localStorage bloqueado):
-      // en ese caso se continúa sin sesión en lugar de quedarse cargando.
-      onRehydrateStorage: () => () => {
-        useAuthStore.setState({ hasHydrated: true });
-      },
-    },
-  ),
-);
+  setUser: (user) => set({ user }),
+}));
 
 /** `true` cuando hay un usuario en sesión. */
 export const selectIsAuthenticated = (state: AuthState) => state.user !== null;
 
 /**
- * Cierra la sesión y recarga la página de login.
+ * Cierra la sesión en el backend (borra las cookies) y recarga la página de
+ * login.
  *
  * Se usa una navegación completa (no `router.push`) porque con Cache Components
  * las páginas visitadas quedan ocultas en memoria con su estado; recargar
  * garantiza que no quede información del usuario anterior.
  */
-export function cerrarSesion() {
-  useAuthStore.getState().logout();
+export async function cerrarSesion() {
+  try {
+    await authService.logout();
+  } catch {
+    // Aunque falle (por ejemplo, sesión ya vencida), se limpia el estado local.
+  }
+  useAuthStore.setState({ user: null });
   // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- recarga completa intencional al cerrar sesión (guía "Preserving UI state" de Next.js)
   window.location.assign("/login");
 }

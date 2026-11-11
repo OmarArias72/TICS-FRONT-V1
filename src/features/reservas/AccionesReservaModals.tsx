@@ -10,6 +10,7 @@ import { z } from "zod";
 
 import { Alert, Button, FormField, Input, Modal, MotivoModal, Select } from "@/components/ui";
 import { FUNCIONES_BACKEND } from "@/lib/api/funcionesBackend";
+import { esCodigo } from "@/lib/api/errors";
 import { reservaSalasService } from "@/lib/api/services";
 import { formatearDia, hoyISO } from "@/lib/fechas";
 import type { Sala, SolicitudReserva, UsoSala } from "@/types/api";
@@ -41,6 +42,7 @@ function useAlTerminar(onClose: () => void) {
     void queryClient.invalidateQueries({ queryKey: clavesReservas.agenda() });
     void queryClient.invalidateQueries({ queryKey: clavesReservas.pendientes });
     void queryClient.invalidateQueries({ queryKey: clavesReservas.misReservas() });
+    void queryClient.invalidateQueries({ queryKey: clavesReservas.solicitudesCambio() });
     toast.success(mensaje);
     onClose();
   };
@@ -78,12 +80,11 @@ type HorarioValues = z.infer<typeof horarioSchema>;
 interface AprobarProps {
   solicitud: SolicitudReserva | null;
   salas: Sala[];
-  idAdmin: number;
   onClose: () => void;
 }
 
 /** Aprobar una solicitud extraordinaria; permite cambiar la sala y el horario. */
-export function AprobarSolicitudModal({ solicitud, salas, idAdmin, onClose }: AprobarProps) {
+export function AprobarSolicitudModal({ solicitud, salas, onClose }: AprobarProps) {
   return (
     <Modal
       open={solicitud !== null}
@@ -98,7 +99,7 @@ export function AprobarSolicitudModal({ solicitud, salas, idAdmin, onClose }: Ap
           key={solicitud.idSolicitud}
           solicitud={solicitud}
           salas={salas}
-          idAdmin={idAdmin}
+         
           onClose={onClose}
         />
       )}
@@ -106,7 +107,7 @@ export function AprobarSolicitudModal({ solicitud, salas, idAdmin, onClose }: Ap
   );
 }
 
-function AprobarForm({ solicitud, salas, idAdmin, onClose }: AprobarProps & { solicitud: SolicitudReserva }) {
+function AprobarForm({ solicitud, salas, onClose }: AprobarProps & { solicitud: SolicitudReserva }) {
   const alTerminar = useAlTerminar(onClose);
   const [iniciales] = useState<HorarioValues>(() => ({
     idSala: String(solicitud.idSala),
@@ -140,7 +141,6 @@ function AprobarForm({ solicitud, salas, idAdmin, onClose }: AprobarProps & { so
   const enviar = (v: HorarioValues) =>
     mutation.mutate({
       idSolicitud: solicitud.idSolicitud,
-      idAdmin,
       idSalaDestino: Number(v.idSala),
       horaInicio: v.horaInicio,
       horaFin: v.horaFin,
@@ -188,11 +188,9 @@ function AprobarForm({ solicitud, salas, idAdmin, onClose }: AprobarProps & { so
 
 export function RechazarSolicitudModal({
   solicitud,
-  idAdmin,
   onClose,
 }: {
   solicitud: SolicitudReserva | null;
-  idAdmin: number;
   onClose: () => void;
 }) {
   const alTerminar = useAlTerminar(onClose);
@@ -216,7 +214,7 @@ export function RechazarSolicitudModal({
       icono={<X className="h-4 w-4" aria-hidden="true" />}
       enviando={mutation.isPending}
       onEnviar={(motivo) =>
-        solicitud && mutation.mutate({ idSolicitud: solicitud.idSolicitud, idAdmin, motivoRechazo: motivo })
+        solicitud && mutation.mutate({ idSolicitud: solicitud.idSolicitud, motivoRechazo: motivo })
       }
     />
   );
@@ -225,12 +223,10 @@ export function RechazarSolicitudModal({
 export function CancelarReservaModal({
   uso,
   fecha,
-  idAdmin,
   onClose,
 }: {
   uso: UsoSala | null;
   fecha: string;
-  idAdmin: number;
   onClose: () => void;
 }) {
   const alTerminar = useAlTerminar(onClose);
@@ -251,7 +247,7 @@ export function CancelarReservaModal({
       etiquetaBoton="Cancelar reserva"
       icono={<Ban className="h-4 w-4" aria-hidden="true" />}
       enviando={mutation.isPending}
-      onEnviar={(motivo) => uso && mutation.mutate({ idUso: uso.idUso, idAdmin, motivoCancelacion: motivo })}
+      onEnviar={(motivo) => uso && mutation.mutate({ idUso: uso.idUso, motivoCancelacion: motivo })}
     />
   );
 }
@@ -279,12 +275,11 @@ interface ReasignarProps {
   /** Fecha de la agenda donde está el uso (el DTO no la incluye). */
   fecha: string;
   salas: Sala[];
-  idAdmin: number;
   onClose: () => void;
 }
 
 /** Mover una reserva a otra sala, fecha u horario. */
-export function ReasignarReservaModal({ uso, fecha, salas, idAdmin, onClose }: ReasignarProps) {
+export function ReasignarReservaModal({ uso, fecha, salas, onClose }: ReasignarProps) {
   return (
     <Modal
       open={uso !== null}
@@ -293,13 +288,13 @@ export function ReasignarReservaModal({ uso, fecha, salas, idAdmin, onClose }: R
       description={uso ? `${uso.profesor} · ${uso.proposito || "Sin propósito"}` : undefined}
     >
       {uso && (
-        <ReasignarForm key={uso.idUso} uso={uso} fecha={fecha} salas={salas} idAdmin={idAdmin} onClose={onClose} />
+        <ReasignarForm key={uso.idUso} uso={uso} fecha={fecha} salas={salas} onClose={onClose} />
       )}
     </Modal>
   );
 }
 
-function ReasignarForm({ uso, fecha, salas, idAdmin, onClose }: ReasignarProps & { uso: UsoSala }) {
+function ReasignarForm({ uso, fecha, salas, onClose }: ReasignarProps & { uso: UsoSala }) {
   const alTerminar = useAlTerminar(onClose);
   const [iniciales] = useState<ReasignarValues>(() => ({
     idSala: String(uso.idSala),
@@ -339,7 +334,6 @@ function ReasignarForm({ uso, fecha, salas, idAdmin, onClose }: ReasignarProps &
   const enviar = (v: ReasignarValues) =>
     mutation.mutate({
       idUso: uso.idUso,
-      idAdmin,
       idSalaDestino: Number(v.idSala),
       fecha: v.fecha,
       horaInicio: v.horaInicio,
@@ -386,7 +380,7 @@ function ReasignarForm({ uso, fecha, salas, idAdmin, onClose }: ReasignarProps &
 }
 
 /* ================================================================
- * Solicitar cambio al profesor (pendiente de backend)
+ * Solicitar cambio al profesor
  * ================================================================ */
 
 /**
@@ -397,20 +391,26 @@ function ReasignarForm({ uso, fecha, salas, idAdmin, onClose }: ReasignarProps &
 export function SolicitarCambioModal({
   uso,
   fecha,
-  idAdmin,
   onClose,
 }: {
   uso: UsoSala | null;
   fecha: string;
-  idAdmin: number;
   onClose: () => void;
 }) {
   const alTerminar = useAlTerminar(onClose);
+  const queryClient = useQueryClient();
   const disponible = FUNCIONES_BACKEND.solicitudesCambio;
   const mutation = useMutation({
     mutationFn: reservaSalasService.solicitarCambio,
     onSuccess: () => alTerminar("Solicitud de cambio enviada al profesor"),
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => {
+      toast.error(err.message);
+      // Otro usuario ya pidió el cambio o la reserva ya es de hoy: se recarga la agenda.
+      if (esCodigo(err, "CAMBIO_VIGENTE", "MISMO_DIA")) {
+        void queryClient.invalidateQueries({ queryKey: clavesReservas.agenda() });
+        onClose();
+      }
+    },
   });
   return (
     <MotivoModal
@@ -435,7 +435,7 @@ export function SolicitarCambioModal({
           </Alert>
         )
       }
-      onEnviar={(mensaje) => uso && mutation.mutate({ idUso: uso.idUso, idAdmin, mensaje })}
+      onEnviar={(mensaje) => uso && mutation.mutate({ idUso: uso.idUso, mensaje })}
     />
   );
 }

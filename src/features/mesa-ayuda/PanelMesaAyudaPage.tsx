@@ -2,10 +2,11 @@
 
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, Inbox, MousePointerClick, Search } from "lucide-react";
+import { ExternalLink, Inbox, ListChecks, Mail, MailPlus, MailSearch, MousePointerClick, Search } from "lucide-react";
 
 import {
   Alert,
+  Button,
   Card,
   EmptyState,
   Input,
@@ -23,17 +24,29 @@ import { formatearFecha } from "@/lib/fechas";
 import { useAuthStore } from "@/store/authStore";
 import type { EstadoSolicitudTecnica, SolicitudTecnica } from "@/types/api";
 
+import { BuzonPanel } from "./BuzonPanel";
+import { CrearSolicitudExternaModal } from "./CrearSolicitudExternaModal";
 import { clavesMesaAyuda, URL_SERVICEDESK } from "./claves";
 import { DetalleAtencion } from "./DetalleAtencion";
+import { EtiquetaExterna } from "./EtiquetaExterna";
 import { nombreTipo } from "./flujo";
+import { ProcesarCorreoModal } from "./ProcesarCorreoModal";
 
-type Bandeja = "REVISAR" | "TICKET" | "EN_TICS" | "TODAS";
+type Bandeja = "REVISAR" | "TICKET" | "EN_TICS" | "EXTERNAS" | "TODAS";
+type Vista = "SOLICITUDES" | "BUZON";
 
 /** Bandejas del panel. "Listas para ticket" equivale al filtro SIN_ID del backend. */
-const BANDEJAS: Array<{ valor: Bandeja; etiqueta: string; estados: EstadoSolicitudTecnica[] | null }> = [
+const BANDEJAS: Array<{
+  valor: Bandeja;
+  etiqueta: string;
+  estados: EstadoSolicitudTecnica[] | null;
+  soloExternas?: boolean;
+}> = [
   { valor: "REVISAR", etiqueta: "Por revisar", estados: ["PENDIENTE"] },
   { valor: "TICKET", etiqueta: "Listas para ticket", estados: ["APROBADA", "FORMULARIO_ENVIADO", "ESPERA_TICKET"] },
   { valor: "EN_TICS", etiqueta: "Ticket en TICS", estados: ["TICKET_CREADO"] },
+  // Abiertas por TIC para alguien sin acceso a su correo institucional (cualquier estado)
+  { valor: "EXTERNAS", etiqueta: "Externas", estados: null, soloExternas: true },
   { valor: "TODAS", etiqueta: "Todas", estados: null },
 ];
 
@@ -49,12 +62,23 @@ const INTERVALO_MS = 30_000;
  * aquí, así cada pestaña muestra su contador.
  */
 export function PanelMesaAyudaPage() {
-  const idAdmin = useAuthStore((s) => s.user?.idUsuario);
+  const idUsuarioActual = useAuthStore((s) => s.user?.idUsuario);
+  const [procesandoCorreo, setProcesandoCorreo] = useState(false);
+  const [creandoExterna, setCreandoExterna] = useState(false);
+  const [vista, setVista] = useState<Vista>("SOLICITUDES");
   const [bandeja, setBandeja] = useState<Bandeja>("REVISAR");
   const [busqueda, setBusqueda] = useState("");
   const termino = useDebouncedValue(busqueda.trim().toLowerCase(), 200);
   const [idSeleccionada, setIdSeleccionada] = useState<number | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+
+  // Mismo dato que la pestaña Buzón (comparten caché): contador de correos sin asociar
+  const estadoBuzon = useQuery({
+    queryKey: clavesMesaAyuda.estadoBuzon,
+    queryFn: solicitudTecnicaService.estadoBuzon,
+    refetchInterval: 60_000,
+  });
+  const pendientesBuzon = estadoBuzon.data?.pendientesDeAsociar ?? 0;
 
   const query = useQuery({
     queryKey: clavesMesaAyuda.panel,
@@ -63,7 +87,8 @@ export function PanelMesaAyudaPage() {
   });
   const todas = query.data ?? [];
 
-  const enBandeja = (b: (typeof BANDEJAS)[number], s: SolicitudTecnica) => b.estados === null || b.estados.includes(s.estado);
+  const enBandeja = (b: (typeof BANDEJAS)[number], s: SolicitudTecnica) =>
+    (!b.soloExternas || s.externa) && (b.estados === null || b.estados.includes(s.estado));
   const actual = BANDEJAS.find((b) => b.valor === bandeja)!;
   const visibles = todas
     .filter((s) => enBandeja(actual, s))
@@ -92,7 +117,15 @@ export function PanelMesaAyudaPage() {
     });
   };
 
-  if (idAdmin === undefined) return null;
+  /** Desde el buzón o "Procesar correo": abre la solicitud en la lista. */
+  const abrirSolicitud = (id: number) => {
+    setVista("SOLICITUDES");
+    setBandeja("TODAS");
+    setBusqueda("");
+    seleccionar(id);
+  };
+
+  if (idUsuarioActual === undefined) return null;
 
   return (
     <PageContainer>
@@ -101,14 +134,64 @@ export function PanelMesaAyudaPage() {
         title="Panel Mesa de Ayuda"
         description="Revisa las solicitudes, captura los tickets de ServiceDesk y ciérralas al resolverse."
         actions={
-          <a href={URL_SERVICEDESK} target="_blank" rel="noopener noreferrer" className={buttonClasses("secondary")}>
-            <ExternalLink className="h-4 w-4" aria-hidden="true" />
-            Abrir ServiceDesk TICS
-            <span className="sr-only"> (se abre en otra pestaña)</span>
-          </a>
+          <>
+            <Button icon={<MailPlus className="h-4 w-4" aria-hidden="true" />} onClick={() => setCreandoExterna(true)}>
+              Solicitud externa
+            </Button>
+            <Button
+              variant="secondary"
+              icon={<MailSearch className="h-4 w-4" aria-hidden="true" />}
+              onClick={() => setProcesandoCorreo(true)}
+            >
+              Procesar correo
+            </Button>
+            <a href={URL_SERVICEDESK} target="_blank" rel="noopener noreferrer" className={buttonClasses("secondary")}>
+              <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              Abrir ServiceDesk TICS
+              <span className="sr-only"> (se abre en otra pestaña)</span>
+            </a>
+          </>
         }
       />
 
+      <div role="tablist" aria-label="Sección del panel" className="flex gap-1 border-b border-variante">
+        {(
+          [
+            { valor: "SOLICITUDES", etiqueta: "Solicitudes", icono: ListChecks },
+            { valor: "BUZON", etiqueta: "Buzón de correo", icono: Mail },
+          ] as const
+        ).map((t) => {
+          const activa = vista === t.valor;
+          const Icono = t.icono;
+          return (
+            <button
+              key={t.valor}
+              type="button"
+              role="tab"
+              aria-selected={activa}
+              onClick={() => setVista(t.valor)}
+              className={cn(
+                "-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-bold transition-colors",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-dorado",
+                activa ? "border-verde text-verde" : "border-transparent text-sobre-variante hover:text-sobre-superficie",
+              )}
+            >
+              <Icono className="h-4 w-4" aria-hidden="true" />
+              {t.etiqueta}
+              {t.valor === "BUZON" && pendientesBuzon > 0 && (
+                <span className="rounded-full bg-alerta-claro px-2 text-xs text-alerta-oscuro" title="Correos sin asociar">
+                  {pendientesBuzon}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {vista === "BUZON" ? (
+        <BuzonPanel onAbrirSolicitud={abrirSolicitud} />
+      ) : (
+      <>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div role="group" aria-label="Bandeja" className="flex flex-wrap gap-2">
           {BANDEJAS.map((b) => {
@@ -177,8 +260,9 @@ export function PanelMesaAyudaPage() {
                     >
                       <span className="flex items-start justify-between gap-3">
                         <span className="min-w-0">
-                          <span className="block text-xs font-extrabold tracking-[0.06em] text-dorado-texto">
+                          <span className="flex flex-wrap items-center gap-1.5 text-xs font-extrabold tracking-[0.06em] text-dorado-texto">
                             #{s.idSolicitud} · {nombreTipo(s.tipoNombre)}
+                            {s.externa && <EtiquetaExterna />}
                           </span>
                           <span className="mt-0.5 block truncate font-extrabold">{s.nombreUsuario}</span>
                           <span className="block truncate text-[13px] text-sobre-variante">{s.correoUsuario}</span>
@@ -196,7 +280,7 @@ export function PanelMesaAyudaPage() {
 
         <div ref={panelRef} className="min-w-0 flex-[999_1_480px] scroll-mt-20 lg:sticky lg:top-20">
           {seleccionada ? (
-            <DetalleAtencion key={seleccionada.idSolicitud} solicitud={seleccionada} idAdmin={idAdmin} />
+            <DetalleAtencion key={seleccionada.idSolicitud} solicitud={seleccionada} idUsuarioActual={idUsuarioActual} />
           ) : (
             <Card className="flex flex-col items-center gap-3 px-6 py-16 text-center">
               <MousePointerClick className="h-8 w-8 text-verde" aria-hidden="true" />
@@ -206,6 +290,18 @@ export function PanelMesaAyudaPage() {
           )}
         </div>
       </div>
+      </>
+      )}
+      <CrearSolicitudExternaModal
+        open={creandoExterna}
+        onClose={() => setCreandoExterna(false)}
+        onCreada={(s) => abrirSolicitud(s.idSolicitud)}
+      />
+      <ProcesarCorreoModal
+        open={procesandoCorreo}
+        onClose={() => setProcesandoCorreo(false)}
+        onAbrirSolicitud={abrirSolicitud}
+      />
     </PageContainer>
   );
 }

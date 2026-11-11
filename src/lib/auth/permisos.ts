@@ -8,8 +8,8 @@ import type { NombreRol } from "@/types/api";
  * misma tabla, de modo que lo que un rol ve en el menú coincide con lo que
  * puede hacer dentro de la página.
  *
- * Importante: esto controla solo la interfaz. El backend no valida la sesión
- * ni el rol, así que no sustituye a una autorización en el servidor.
+ * Esto controla solo la interfaz; el backend v4 aplica la misma matriz en
+ * SecurityConfig (la autorización real está en el servidor).
  */
 
 const ADMIN: NombreRol = "Admin";
@@ -37,8 +37,10 @@ export const PERMISOS = {
   "inventario.eliminar": [ADMIN],
   /** Cambio de estado masivo a ALTA o MANTENIMIENTO. */
   "inventario.estadoMasivo": [ADMIN, OPERADOR],
-  /** Dar de BAJA (individual o masivo): equivale a retirar el equipo. */
-  "inventario.darDeBaja": [ADMIN],
+  /** Dar de BAJA (individual o masivo): equivale a retirar el equipo. Operador desde 2026-11-06. */
+  "inventario.darDeBaja": [ADMIN, OPERADOR],
+  /** Sacar un equipo de BAJA (reactivarlo): solo el Admin revisa y deshace un retiro. */
+  "inventario.reactivar": [ADMIN],
   "inventario.conteos": [ADMIN, OPERADOR],
   "inventario.reportes": [ADMIN, OPERADOR],
 
@@ -49,6 +51,12 @@ export const PERMISOS = {
   "reservas.gestionar": [ADMIN, OPERADOR],
   /** Apertura y cierre de la agenda. */
   "agenda.configurar": [ADMIN],
+
+  /* ---------- Bitácora (logs) ---------- */
+  /** Bitácora de equipos: quién registró, modificó o dio de baja cada equipo. */
+  "bitacora.equipos": [ADMIN, OPERADOR],
+  /** Auditoría de todo el sistema: sesiones, usuarios, reservas, CURP consultadas... */
+  "bitacora.sistema": [ADMIN],
 
   /* ---------- Usuarios ---------- */
   "usuarios.gestionar": [ADMIN],

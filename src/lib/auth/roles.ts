@@ -80,6 +80,12 @@ export const RUTAS_PROTEGIDAS: readonly RutaProtegida[] = [
     seccion: "admin",
     permiso: "usuarios.gestionar",
   },
+  {
+    href: "/admin/bitacora",
+    label: "Bitácora",
+    seccion: "admin",
+    permiso: "bitacora.equipos",
+  },
 ];
 
 /**

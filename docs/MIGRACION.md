@@ -2,7 +2,7 @@
 
 - Origen: `TICS-FRONT-END/TIC-UAEMEX-WEB/TIC-CUUT` (solo lectura).
 - Destino: `TICS-FRONT-NEXT/tic-cuut`.
-- Backend: `JAVA-BACK/TICS-BACKEND` (Spring Boot, puerto 8000, sin modificaciones).
+- Backend: `JAVA-BACK/TICS-BACKEND` (Spring Boot, puerto 8080; v4.1 con Spring Security, fase 2 y módulo de logs).
 
 Clasificación: **R** = reutilizable · **A** = requiere adaptación · **C** = requiere reconstrucción · **P** = pendiente de información.
 
@@ -24,11 +24,13 @@ src/
       inventario/conteo/page.tsx
       reservas/page.tsx
       reservas/mis-solicitudes/page.tsx
+      reservas/mis-reservas/page.tsx
       solicitudes-tecnicas/page.tsx
       admin/usuarios/page.tsx
       admin/reservas/page.tsx
       admin/config-agenda/page.tsx
       admin/solicitudes-tecnicas/page.tsx
+      admin/bitacora/page.tsx  Módulo de logs (bitácora de equipos y auditoría)
   components/
     layout/NavBar.tsx, Footer.tsx
     providers/Providers.tsx    QueryClientProvider + Toaster
@@ -117,6 +119,7 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 | Mesa de ayuda (2 páginas, 2 componentes, 3 modales) | `features/solicitudes-tecnicas/**` | A: tarjetas con progreso por pasos (prototipo); panel con bandejas, lista y detalle lateral; validaciones del formulario iguales al backend; cierre automático al resolver | `features/mesa-ayuda/**` + `/solicitudes-tecnicas`, `/admin/solicitudes-tecnicas` | Hecho |
 | Gestión de usuarios (1 página, 5 componentes) | `features/admin/users/**` | A: react-hook-form + zod; corrige el rol que se perdía al editar; protege la cuenta propia; reglas de contraseña | `features/admin/users/**` + `/admin/usuarios` | Hecho |
 | AdminReservaSalasPage | `features/admin/pages/AdminReservaSalasPage.jsx` | R: el `idAdmin` sale de la sesión dentro de `ControlReservasPage` | `app/(protected)/admin/reservas/page.tsx` | Hecho |
+| Bitácora (nuevo, sin equivalente en el original) | — | C: bitácora de equipos (Admin y Operador) y auditoría del sistema (Admin), con filtros, paginación y CSV | `features/bitacora/**` + `/admin/bitacora` | Hecho |
 | AdminConfigAgendaPage | `features/admin/pages/AdminConfigAgendaPage.jsx` | A: interruptor local con aviso "Pendiente de backend" | `app/(protected)/admin/config-agenda/page.tsx` + `features/admin/ConfigAgendaPanel.tsx` | Hecho |
 
 ## 3. Incompatibilidades Vite a Next.js
@@ -160,8 +163,11 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 12. **Mesa de Ayuda** (2026-10-30): al resolver el ticket la solicitud queda cerrada sin confirmación del solicitante (se quita "Confirmar resolución", que nunca funcionaba); el enlace a ServiceDesk apunta a la página general `https://msdtic.uaemex.mx/`; el panel de Admin y Operador es una lista con detalle lateral y bandejas Por revisar / Listas para ticket / Ticket en TICS / Todas, calculadas a partir de una sola consulta; la CURP se muestra oculta hasta pedirla; el solicitante recibirá avisos en la campana cuando su solicitud se apruebe, se rechace o se resuelva (pendiente de backend, sección 7.6).
 13. **Mapa de Aulas** (2026-10-30): los equipos se cargan con `GET /equipos-computo` y se agrupan por sala en el navegador, como en el original; dentro de una sala, cuadrícula de PC coloreadas por estado con filtros y panel lateral de detalle; las contraseñas aparecen ocultas, con botones para mostrar y copiar cada una (solo Admin y Operador); el resumen de sala muestra estados, sistemas operativos y periféricos con falla, sin el conteo de software por palabras clave. El formulario permite mover un equipo a otra sala y, igual que en Inventario, el Operador no puede dar de BAJA.
 14. **Pruebas automáticas y CI** (2026-10-30): ninguna por ahora; se valida con `pnpm lint`, `pnpm build` y pruebas manuales por rol.
+15. **Módulo de logs / Bitácora** (2026-11-02): pantalla `/admin/bitacora` para dar trazabilidad a los cambios. Pestaña **Equipos** (Admin y Operador, permiso `bitacora.equipos`): quién registró, modificó (campo por campo, antes → después), cambió de estado, consultó contraseñas o eliminó cada equipo, desde qué módulo (Inventario, Mapa de Aulas, Mantenimientos, app móvil), cuándo y desde qué IP; atajos "¿Quién registró?", "Modificaciones" y "Eliminaciones"; filtros por equipo, usuario, acción, módulo, texto y fechas; exportar CSV. Pestaña **Sistema** (solo Admin, `bitacora.sistema`): la auditoría general. Inventario muestra "por <usuario>" bajo la fecha de registro y un botón **Historial** por equipo; el detalle de una PC en el Mapa de Aulas muestra quién la registró y "Ver historial". Ambos abren `/admin/bitacora?inventario=...`.
 
 ## 5. Riesgos conocidos del backend
+
+> **Actualización 2026-11-02 (backend v4.1).** El backend corrigió la mayoría de estos puntos: sesión con JWT en cookies httpOnly y sin `idUsuario`/`idAdmin` en las peticiones, contraseñas con BCrypt, CURP con AES-256-GCM y clave en variable de entorno, contraseñas de equipos cifradas y pedidas aparte, CORS restringido, mappers completos, endpoint "mis reservas" y eliminación de `PUT /{id}/cerrar`. La lista se conserva como historial; los pendientes actuales están en la sección 11 del `AGENTS.md` del backend.
 
 - La sesión vive en `localStorage` y el backend recibe `idUsuario`/`idAdmin` como parámetro sin verificarlo. La protección de rutas del frontend es solo de experiencia de usuario, no de seguridad. Queda para la refactorización del backend.
 - `CORS` del backend usa `allowedOriginPatterns("*")` con `allowCredentials(true)`. No afecta al frontend gracias al rewrite; queda anotado para el backend.
@@ -188,7 +194,9 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 - El registro público ya no muestra selector de rol: el backend lo ignoraba y siempre asigna "Profesor".
 - Todos los servicios lanzan `ApiError` con el texto del backend. Antes, los métodos sin `try/catch` mostraban el genérico de Axios ("Request failed with status code 400").
 
-## 7. Cambios requeridos en el backend (pendientes)
+## 7. Cambios requeridos en el backend (implementados en v4.1)
+
+> **Actualización 2026-11-02.** El backend v4.1 implementó esta especificación con algunas diferencias: `GET /mis-reservas` devuelve `UsoSala[]` con `solicitudCambio` y `editablePorProfesor` (no un DTO aparte), las notificaciones añaden `GET /conteo` y `DELETE /{id}`, y hay tipos de notificación nuevos. El contrato vigente es `CAMBIOS-FRONTEND-FASE2.md` del backend; los tipos del frontend (`src/types/api`) ya lo siguen.
 
 Esta sección describe lo que `TICS-BACKEND` necesita para las funciones de la decisión 11. **No se ha modificado el backend**; queda para su refactorización. Cuando cada parte exista, se activa su bandera en `src/lib/api/funcionesBackend.ts`.
 
@@ -317,3 +325,97 @@ Sin endpoints nuevos: `SolicitudTecnicaService` llama a `NotificacionService.cre
 | `resolverTicket` | `SOLICITUD_TECNICA_RESUELTA` | "Tu solicitud #N quedó resuelta. ID de resolución: <código>." |
 
 Los tres tipos ya están en el `CHECK` de la tabla `notificaciones` (7.1) y en `src/types/api/notificacion.ts`.
+
+## 8. Adaptación al backend v4 (2026-11-02)
+
+El backend pasó a Spring Security con JWT en cookies (fase 1) y añadió notificaciones, solicitudes de cambio y lectura del buzón (fase 2). El frontend se adapta en cuatro PR (decisión del 2026-11-02):
+
+| PR | Contenido | Estado |
+| --- | --- | --- |
+| 1 | Sesión por cookies, errores con `codigo`, quitar `idUsuario`/`idAdmin`, contratos nuevos (equipos planos, CURP enmascarada, reservas completas, configuración del módulo, reportes XLSX), desbloquear usuario | Hecho |
+| 2 | Verificar correo (código de 6 dígitos o enlace), reenviar verificación, olvidé / restablecer contraseña | Hecho |
+| 2c | reCAPTCHA v3 en registro, recuperación y solicitudes (opcional; el backend lo trae apagado) | Pendiente |
+| 2b | **Mi perfil** (`/perfil`): datos, cambiar contraseña y eliminar cuenta (Profesor y Alumno) | Hecho |
+| 3c | Integración con los correos de ServiceDesk: asociación y cierre automáticos, Asociar / Descartar en Buzón, título sugerido `SOL-<id>` | Hecho |
+| 3 | Fase 2: campana, mis reservas, solicitudes de cambio, pestaña Buzón | Hecho |
+| 3b | Módulo de logs: Bitácora de equipos y auditoría (decisión 15) | Hecho |
+| 4 | Mantenimientos y bloqueos temporales (la bitácora y la auditoría pasaron al PR 3b) | Pendiente |
+
+### Sesión
+
+- `store/authStore.ts` ya no usa `localStorage` (se borra la clave antigua `tic-auth`). Al cargar, `Providers` llama a `GET /api/auth/me`; mientras responde, `AuthGuard` muestra "Verificando sesión...".
+- `lib/api/client.ts`: ante un 401, una sola llamada a `POST /api/auth/refresh` compartida por las peticiones que fallen juntas, y se repite la petición. Si el refresh falla, el store limpia el usuario, avisa "Tu sesión expiró" y `AuthGuard` envía a `/login?next=...`.
+- Cerrar sesión llama a `POST /api/auth/logout` (borra las cookies) antes de recargar `/login`.
+
+### Errores
+
+- `ApiError` incluye `codigo`, `detalles` (por campo, con `VALIDACION`) y `reintentarEn` (cabecera `Retry-After` en 429). `esCodigo(error, "MISMO_DIA", ...)` permite reaccionar a un código.
+- Los mensajes del backend se muestran tal cual; los reintentos automáticos de React Query solo aplican a errores de red o 5xx.
+
+### Cambios por módulo
+
+- **Usuarios**: el rol se lee de `idRol`; columnas de correo verificado y último acceso; botón para quitar el bloqueo por intentos fallidos. El backend impide quitar al último Admin (`ULTIMO_ADMIN`).
+- **Registro**: `POST /api/auth/registro`; el rol lo decide el dominio (`@alumno.uaemex.mx` Estudiante, `@uaemex.mx` Profesor) y la cuenta queda pendiente de verificar el correo.
+- **Inventario**: reporte Excel (`/reportes/equipos/xlsx`); el error de una descarga se lee aunque llegue como Blob.
+- **Mapa de Aulas**: `EquipoComputoResponse` plano; las contraseñas se piden con `GET /{id}/contrasenas` al pulsar "Mostrar contraseñas" (queda en la bitácora). El formulario envía `contrasena` solo si cambia, `borrarContrasena` y `motivoCambio`; ya no existen la contraseña de administrador ni la anterior editable.
+- **Reservas**: DTO completos (motivo de rechazo y quién atendió en Mis solicitudes); el estado `Reasignada` ocupa el horario; el Admin no tiene el límite de 30 días. Con el módulo cerrado (`GET /configuracion/modulos/RESERVAS`), el Profesor ve el mensaje y no puede consultar la agenda ni reservar.
+- **Apertura / Cierre de agenda**: ya se guarda en el backend, con periodo opcional y mensaje para los profesores (se quita el aviso "Pendiente de backend").
+- **Mesa de Ayuda**: CURP enmascarada y botón "Mostrar" que pide la completa (auditado); quién la atiende y hasta cuándo; "Liberar"; "Agregar seguimiento"; comentario al resolver; "Procesar correo"; seguimiento del ticket visible para el solicitante. El formulario exige correo alterno distinto, teléfono y descripción, y la CURP se escribe completa en cada guardado. Espera de 8 h entre solicitudes del mismo tipo.
+
+### Fase 2 (PR 3)
+
+- Banderas de `lib/api/funcionesBackend.ts` en `true`.
+- **Campana**: cada 60 s (y al volver a la pestaña) consulta solo `GET /notificaciones/conteo`; la lista se pide al abrir el panel. El globo usa el total del servidor (`99+`), cada aviso tiene icono por grupo, fecha con hora y botón para quitarlo.
+- **Mis reservas** (`/reservas/mis-reservas`): cancelar hasta el día anterior, aceptar o rechazar (con motivo) un cambio pedido por TICS y, si se aceptó, modificar sala, fecha u horario.
+- **Control de Reservas**: "Pedir cambio" se oculta si la reserva ya tiene un cambio vigente o es de hoy; la agenda muestra la etiqueta "Cambio: pendiente / aceptada"; nueva sección **Solicitudes de cambio a profesores** con filtro por estado (respuesta del profesor y quién lo pidió).
+- **Panel Mesa de Ayuda**: pestañas **Solicitudes** y **Buzón de correo**. El buzón muestra si la lectura automática está activa, la última revisión y el último error, el botón **Revisar ahora** y la tabla de correos leídos (filtro por resultado; "Ver #N" abre la solicitud).
+
+### Módulo de logs (PR 3b)
+
+Ver la decisión 15. Endpoints: `GET /api/bitacora`, `/api/bitacora/catalogos`, `/api/bitacora/csv` (Admin y Operador) y `GET /api/auditoria`, `/catalogos`, `/csv` (Admin). `EquipoVista` y `EquipoComputo` añaden `registradoPor`. Requiere aplicar `db/init/03-logs.sql` del backend.
+
+### Integración con ServiceDesk y perfil (PR 2b y 3c, 2026-11-03)
+
+Contrato completo en `CAMBIOS-FRONTEND-TICKETS-PERFIL.md` del backend. Requiere `db/init/04-tickets-correo.sql`.
+
+- **Decisión 16 (correos de ServiceDesk)**: los avisos que envía `sdp_msdtic@uaemex.mx` al buzón de la UAP se aplican solos. El correo de creación asocia el ticket si su título lleva el folio (`SOL-<id>`; el panel sugiere el título completo y lo copia) o si solo hay una solicitud tomada; el de resolución o cierre cierra la solicitud y el solicitante recibe la resolución de la DTIC. Lo que no se puede asociar queda "Sin asociar" en la pestaña Buzón con **Asociar** y **Descartar**. La captura manual del ID sigue disponible y aplica los correos que ya habían llegado.
+- **Decisión 17 (perfil)**: `/perfil` para cualquier rol (nombre y apellidos, contraseña). Solo Profesor y Alumno pueden eliminar su cuenta; antes se muestra qué se cancelará (reservas desde hoy, solicitudes sin ticket) y se pide la contraseña y escribir "ELIMINAR". Admin y Operador los elimina un Admin en Gestión de Usuarios.
+
+### Cambio de correo desde el perfil (2026-11-03)
+
+- Decisión: cualquier usuario puede cambiar su correo en **Mi perfil**, de forma directa y confirmando su contraseña (sin enlace de verificación). El correo debe ser institucional (`@uaemex.mx` o `@alumno.uaemex.mx`) y no estar en uso. El rol no cambia aunque cambie el dominio: solo el Admin cambia roles.
+- Backend (modificado con autorización): `PUT /api/usuarios/me/correo {correoNuevo, password}` en `PerfilController`, `UsuarioService.cambiarMiCorreo` y `AuthDTOs.CambiarCorreoRequest`. Errores: `PASSWORD_ACTUAL_INCORRECTA` (400), `CORREO_NO_INSTITUCIONAL`, `CORREO_REGISTRADO`, `CORREO_SIN_CAMBIO`. Queda en la auditoría como `CAMBIAR_CORREO` (anterior → nuevo). No requiere cambios en la base de datos. La sesión sigue válida porque el JWT identifica al usuario por id.
+- Frontend: `perfilService.cambiarCorreo` y la sección "Correo electrónico" en `features/perfil/PerfilPage.tsx`; al guardar se actualiza el nombre/correo del usuario en sesión.
+
+### Registro, verificación y recuperación de contraseña (PR 2, 2026-11-05)
+
+Contrato en `CAMBIOS-FRONTEND-CUENTAS.md` del backend. Requiere `db/init/05-codigos-correo.sql`.
+
+- **Decisión 18**: el correo de verificación y el de recuperación traen un código de 6 dígitos y un enlace; cualquiera de los dos sirve. Tras registrarse, el usuario pasa a `/verificar-correo` para escribir el código (con "Reenviar código" cada 60 s). En el login, `CORREO_NO_VERIFICADO` muestra un aviso con el enlace a esa página, y "¿Olvidaste tu contraseña?" lleva a `/olvide-password` (correo → código + nueva contraseña en la misma página). `/restablecer-password?token=` atiende el enlace del correo. Las cuatro páginas son públicas.
+
+### Solicitudes externas: persona sin acceso a su correo institucional (2026-11-05)
+
+Contrato en `CAMBIOS-FRONTEND-SOLICITUD-EXTERNA.md` del backend. Requiere `db/init/06-solicitudes-externas.sql`.
+
+- **Decisión 19**: el Admin u Operador abre una **solicitud externa** desde el Panel Mesa de Ayuda ("Solicitud externa") con nombre, correo alterno (Gmail, Outlook…; nunca institucional), tipo y motivo. Queda APROBADA y la persona recibe un enlace de **72 h** a `/formulario-externo?token=`. Esa página es pública, tiene un **encabezado propio** (NavBar en modo externo, sin menú ni sesión) y avisa que si no envía sus datos la solicitud se rechaza. Puede corregirlos hasta que TIC toma la solicitud; después solo ve la etapa.
+- Sin formulario a las 72 h, el backend la rechaza solo ("No se recibieron los datos…"), avisa por correo a la persona y con una notificación a quien la abrió. Desde el detalle se puede **reenviar el enlace** (nuevo, invalida el anterior, permite corregir el correo) mientras espera datos o si fue rechazada (la reabre), y **rechazarla** antes del ticket.
+- La persona no ve el seguimiento: solo recibe el correo final de **resuelta** o **rechazada**. En el panel se distinguen con la etiqueta **Externa**, la bandeja "Externas" y un aviso en el detalle; `idUsuario` es `null` y `correoUsuario` es el correo alterno.
+- Frontend: `CrearSolicitudExternaModal`, `EtiquetaExterna`, `FormularioExternoPage` (+ `app/formulario-externo/page.tsx`), `CamposFormularioDatos` (campos compartidos con el formulario del solicitante con cuenta), `ReenviarEnlaceModal` dentro de `DetalleAtencion`, y en `solicitudTecnicaService`: `crearExterna`, `reenviarEnlace`, `rechazarExterna`, `consultarFormularioExterno`, `llenarFormularioExterno`.
+
+### Reservas del Admin y refresco de "Mis reservas" (2026-11-05)
+
+Requiere `db/init/07-reservas-profesor-externo.sql` del backend.
+
+- **Decisión 20**: el Admin puede modificar y cancelar **sus** reservas directamente (sala, fecha, horario, propósito), sin solicitud de cambio ni el límite del día anterior, mientras no hayan terminado: botón **Modificar** en la agenda de Reserva de Salas (solo en sus filas) y en Mis reservas (`PUT /mis-reservas/{id}/editar`).
+- Al reservar, el Admin tiene el campo opcional **"Profesor sin cuenta"** para registrar la reserva a nombre de un profesor que no quiere registrarse. La reserva es del Admin (la ve y modifica en Mis reservas); la agenda y el Control de Reservas muestran el nombre del profesor con "Sin cuenta · registró <Admin>". A esas reservas no se les puede "Pedir cambio" (`PROFESOR_SIN_CUENTA`): se reasignan.
+- **Corrección del refresco**: `clavesReservas.misReservas()` sin argumento devolvía `["mis-reservas", undefined]`, que React Query no empareja con `["mis-reservas", <id>]`; por eso al aceptar un cambio la pantalla no se actualizaba hasta recargar. Ahora devuelve el prefijo (igual `misSolicitudes` en reservas y mesa de ayuda). Además, al aceptar se actualiza la tarjeta al momento y se abre "Modificar reserva"; Mis reservas se vuelve a consultar cada minuto y al volver a la pestaña, y la campana recarga reservas, cambios y solicitudes cuando llega una notificación nueva o al abrir una.
+
+### Avisos de cambio, ocupación al modificar y ayuda sin cuenta (2026-11-06)
+
+- **Decisión 21**: las solicitudes de cambio de TIC, además de la campana, se resaltan en **Mis solicitudes** y en **Reserva de Salas** (bloque dorado "TIC te pide cambiar una reserva", con "Responder" / "Modificar"), y el botón "Mis reservas" muestra cuántas hay por atender (`features/reservas/CambiosPendientes.tsx`, misma caché que Mis reservas). Los enlaces y la notificación (`/reservas/mis-reservas?reserva=<id>`) llevan a la reserva, que se resalta y se desplaza a la vista; las tarjetas con un cambio por responder tienen borde dorado.
+- Al modificar una reserva (profesor con cambio aceptado o Admin) se muestran las reservas de la sala y el día elegidos: la propia como "Tu reserva actual" y en rojo las que se empalman con el horario escrito.
+- Ayuda de tickets (`/ayuda`): nueva sección **"¿No puedes registrarte en la plataforma?"** con el flujo de la solicitud externa (acudir a TIC, enlace al correo personal, formulario sin cuenta, vence en 72 h y se rechaza sola, aviso final por correo) y preguntas frecuentes relacionadas.
+
+### Operador puede dar de baja equipos (2026-11-06)
+
+- **Decisión 22**: `inventario.darDeBaja` pasa a Admin y Operador (formulario de inventario, formulario de equipo de cómputo, cambio masivo y finalizar mantenimiento sin reparación). Sacar un equipo de BAJA es el nuevo permiso `inventario.reactivar`, solo Admin; el backend responde `403 SOLO_ADMIN_BAJA` si un Operador lo intenta. Borrar el registro (`inventario.eliminar`) sigue siendo solo Admin.

@@ -1,17 +1,16 @@
 "use client";
 
 import { useId, useState, type ReactNode } from "react";
-import { useForm, type UseFormRegisterReturn } from "react-hook-form";
+import { useForm, useWatch, type UseFormRegisterReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Eye, EyeOff, Save } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Save } from "lucide-react";
 import { toast } from "react-hot-toast";
 
 import { Alert, Button, FormField, Input, Modal, Select, Textarea } from "@/components/ui";
 import { usePermiso } from "@/features/auth/usePermiso";
 import { equipoComputoService } from "@/lib/api/services";
-import { useAuthStore } from "@/store/authStore";
-import type { EquipoComputo, EquipoComputoRequest, Sala } from "@/types/api";
+import type { ContrasenasEquipo, EquipoComputo, EquipoComputoRequest, Sala } from "@/types/api";
 
 import { CLAVES_INVENTARIO, clavesAulas } from "./claves";
 import { OPCIONES } from "./equipos";
@@ -35,7 +34,7 @@ export function EquipoFormModal({ open, equipo, salaInicial, salas, onClose, onG
       open={open}
       onClose={onClose}
       size="lg"
-      title={equipo ? `Editar equipo ${equipo.equipo.inventario}` : "Registrar equipo"}
+      title={equipo ? `Editar equipo ${equipo.inventario}` : "Registrar equipo"}
       description={equipo ? undefined : `Sala ${salaInicial.codigoSala}${salaInicial.nombre ? ` · ${salaInicial.nombre}` : ""}`}
     >
       {open && (
@@ -55,14 +54,14 @@ export function EquipoFormModal({ open, equipo, salaInicial, salas, onClose, onG
 function valoresIniciales(equipo: EquipoComputo | null, salaInicial: Sala): EquipoComputoValues {
   const e = equipo;
   return {
-    inventario: e?.equipo.inventario ?? "",
-    serie: e?.equipo.serie ?? "",
-    nombreArticulo: e?.equipo.articulo.nombreArticulo ?? "Computadora",
-    nombreMarca: e?.equipo.modelo.marca.nombreMarca ?? "",
-    nombreModelo: e?.equipo.modelo.nombreModelo ?? "",
-    caracteristicas: e?.equipo.caracteristicas ?? "",
-    estado: (e?.equipo.estado as EquipoComputoValues["estado"] | undefined) ?? "ALTA",
-    idSala: String(e?.sala?.idSala ?? salaInicial.idSala),
+    inventario: e?.inventario ?? "",
+    serie: e?.serie ?? "",
+    nombreArticulo: e?.nombreArticulo ?? "Computadora",
+    nombreMarca: e?.nombreMarca ?? "",
+    nombreModelo: e?.nombreModelo ?? "",
+    caracteristicas: e?.caracteristicas ?? "",
+    estado: (e?.estado as EquipoComputoValues["estado"] | undefined) ?? "ALTA",
+    idSala: String(e?.idSala ?? salaInicial.idSala),
     procesador: e?.procesador ?? "",
     ram: e?.ram ?? "",
     almacenamiento: e?.almacenamiento ?? "",
@@ -75,10 +74,11 @@ function valoresIniciales(equipo: EquipoComputo | null, salaInicial: Sala): Equi
     estadoCableEthernet: e?.estadoCableEthernet ?? "Bueno",
     estadoCpu: e?.estadoCpu ?? "Funciona",
     estadoComputadora: e?.estadoComputadora ?? "Funcionando",
-    contrasena: e?.contrasena ?? "",
-    passwordAdmin: e?.passwordAdmin ?? "",
-    lastPassword: e?.lastPassword ?? "",
+    // La contraseña actual no llega en la respuesta: el campo es para una nueva.
+    contrasena: "",
+    borrarContrasena: false,
     observaciones: e?.observaciones ?? "",
+    motivoCambio: "",
   };
 }
 
@@ -90,18 +90,24 @@ function EquipoForm({
   onGuardado,
 }: Omit<EquipoFormModalProps, "open">) {
   const queryClient = useQueryClient();
-  const idUsuario = useAuthStore((s) => s.user?.idUsuario);
   const puedeDarDeBaja = usePermiso("inventario.darDeBaja");
+  const puedeReactivar = usePermiso("inventario.reactivar");
   const verContrasenas = usePermiso("equipos.verContrasenas");
   const [mostrarContrasenas, setMostrarContrasenas] = useState(false);
+  /** Contraseñas registradas, si el usuario las cargó (queda en la bitácora). */
+  const [cargadas, setCargadas] = useState<ContrasenasEquipo | null>(null);
+  const hayRegistradas = Boolean(equipo && (equipo.tieneContrasena || equipo.tieneUltimaContrasena));
   const [iniciales] = useState(() => valoresIniciales(equipo, salaInicial));
   const enBaja = iniciales.estado === "BAJA";
 
   const {
     register,
     handleSubmit,
+    control,
+    setValue,
     formState: { errors, isDirty },
   } = useForm<EquipoComputoValues>({ resolver: zodResolver(equipoComputoSchema), defaultValues: iniciales });
+  const borrarContrasena = useWatch({ control, name: "borrarContrasena" });
 
   const mutation = useMutation({
     mutationFn: (v: EquipoComputoValues) => {
@@ -130,12 +136,17 @@ function EquipoForm({
         estadoCableEthernet: v.estadoCableEthernet,
         estadoCpu: v.estadoCpu,
         estadoComputadora: v.estadoComputadora,
-        // Sin permiso para verlas, se conservan las actuales.
-        contrasena: verContrasenas ? nulo(v.contrasena) : (equipo?.contrasena ?? null),
-        passwordAdmin: verContrasenas ? nulo(v.passwordAdmin) : (equipo?.passwordAdmin ?? null),
-        lastPassword: verContrasenas ? nulo(v.lastPassword) : (equipo?.lastPassword ?? null),
+        // Solo se envía si cambia (o se pide borrarla); el backend guarda la
+        // anterior como "última" y lo registra en la bitácora.
+        // Se envía solo si es distinta de la registrada (si se cargó), para
+        // que el backend no la mueva a "última contraseña" sin un cambio real.
+        contrasena:
+          verContrasenas && !v.borrarContrasena && v.contrasena !== "" && v.contrasena !== (cargadas?.contrasena ?? "")
+            ? v.contrasena
+            : null,
+        borrarContrasena: verContrasenas && v.borrarContrasena,
         observaciones: nulo(v.observaciones),
-        ultimoUsuarioActualizacion: idUsuario ?? null,
+        motivoCambio: nulo(v.motivoCambio),
       };
       return equipo ? equipoComputoService.actualizar(equipo.idEquipoComputo, datos) : equipoComputoService.crear(datos);
     },
@@ -150,6 +161,16 @@ function EquipoForm({
   });
 
   const tipoContrasena = mostrarContrasenas ? "text" : "password";
+
+  const cargar = useMutation({
+    mutationFn: () => equipoComputoService.obtenerContrasenas(equipo!.idEquipoComputo),
+    onSuccess: (datos) => {
+      setCargadas(datos);
+      // Se coloca la actual en el campo sin marcar el formulario como modificado.
+      setValue("contrasena", datos.contrasena ?? "", { shouldDirty: false });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
 
   return (
     <form noValidate onSubmit={handleSubmit((v) => mutation.mutate(v))} className="flex flex-col gap-6">
@@ -189,13 +210,19 @@ function EquipoForm({
         <FormField
           label="Estado en inventario"
           error={errors.estado?.message}
-          hint={!puedeDarDeBaja ? "Solo el administrador puede dar de BAJA un equipo." : undefined}
+          hint={
+            enBaja && !puedeReactivar
+              ? "Solo el administrador puede reactivar un equipo dado de BAJA."
+              : !puedeDarDeBaja
+                ? "Solo el administrador puede dar de BAJA un equipo."
+                : undefined
+          }
         >
           {(a11y) => (
             // Un equipo en BAJA solo lo reactiva el administrador: el Operador
             // ve únicamente esa opción (un select deshabilitado no se enviaría).
             <Select {...a11y} {...register("estado")}>
-              {(puedeDarDeBaja || !enBaja) && (
+              {(puedeReactivar || !enBaja) && (
                 <>
                   <option value="ALTA">ALTA</option>
                   <option value="MANTENIMIENTO">MANTENIMIENTO</option>
@@ -261,17 +288,77 @@ function EquipoForm({
             </Button>
           }
         >
-          <FormField label="Usuario" error={errors.contrasena?.message}>
-            {(a11y) => <Input {...a11y} type={tipoContrasena} autoComplete="off" {...register("contrasena")} />}
+          {hayRegistradas && !cargadas && (
+            <div className="flex flex-wrap items-center gap-2.5 rounded-xl bg-superficie px-3.5 py-3 sm:col-span-2">
+              <span className="text-[13px] text-sobre-variante">
+                Este equipo ya tiene contraseñas registradas. Cárgalas para verlas o editarlas aquí.
+              </span>
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={cargar.isPending}
+                icon={<KeyRound className="h-3.5 w-3.5" aria-hidden="true" />}
+                onClick={() => cargar.mutate()}
+              >
+                Cargar contraseñas
+              </Button>
+            </div>
+          )}
+          <FormField
+            label="Contraseña actual"
+            error={errors.contrasena?.message}
+            hint={
+              cargadas
+                ? "Si la cambias, la actual pasará a ser la última contraseña."
+                : equipo?.tieneContrasena
+                  ? "Hay una registrada: déjala vacía para conservarla o escribe una nueva."
+                  : undefined
+            }
+          >
+            {(a11y) => (
+              <Input
+                {...a11y}
+                type={tipoContrasena}
+                autoComplete="new-password"
+                // readOnly y no disabled: un campo deshabilitado no se envía y
+                // el esquema esperaría un texto.
+                readOnly={borrarContrasena}
+                className={borrarContrasena ? "opacity-50" : undefined}
+                {...register("contrasena")}
+              />
+            )}
           </FormField>
-          <FormField label="Administrador" error={errors.passwordAdmin?.message}>
-            {(a11y) => <Input {...a11y} type={tipoContrasena} autoComplete="off" {...register("passwordAdmin")} />}
+          <FormField
+            label="Última contraseña"
+            hint="La guarda el sistema automáticamente cuando cambias la actual."
+          >
+            {(a11y) => (
+              <Input
+                {...a11y}
+                type={cargadas?.ultimaContrasena ? tipoContrasena : "text"}
+                readOnly
+                tabIndex={-1}
+                value={
+                  cargadas
+                    ? (cargadas.ultimaContrasena ?? "Sin registrar")
+                    : equipo?.tieneUltimaContrasena
+                      ? "Registrada (cárgala para verla)"
+                      : "Sin registrar"
+                }
+                className="bg-superficie text-sobre-variante"
+              />
+            )}
           </FormField>
-          <FormField label="Anterior" error={errors.lastPassword?.message}>
-            {(a11y) => <Input {...a11y} type={tipoContrasena} autoComplete="off" {...register("lastPassword")} />}
-          </FormField>
+          {equipo?.tieneContrasena && (
+            <label className="flex items-center gap-2.5 text-sm font-semibold sm:col-span-2">
+              <input type="checkbox" className="h-5 w-5 accent-verde" {...register("borrarContrasena")} />
+              Quitar la contraseña actual
+            </label>
+          )}
           <div className="sm:col-span-2">
-            <Alert tone="alerta">El backend guarda estas contraseñas sin cifrar; no reutilices contraseñas personales.</Alert>
+            <Alert tone="info">
+              Se guardan cifradas y cada cambio o consulta queda en la bitácora del equipo.
+            </Alert>
           </div>
         </Seccion>
       )}
@@ -279,6 +366,16 @@ function EquipoForm({
       <FormField label="Observaciones" error={errors.observaciones?.message}>
         {(a11y) => <Textarea {...a11y} rows={3} {...register("observaciones")} />}
       </FormField>
+
+      {equipo && (
+        <FormField
+          label="Motivo del cambio"
+          error={errors.motivoCambio?.message}
+          hint="Opcional. Queda como nota en la bitácora del equipo."
+        >
+          {(a11y) => <Input {...a11y} {...register("motivoCambio")} />}
+        </FormField>
+      )}
 
       <div className="-mx-6 -mb-5 flex flex-wrap justify-end gap-2.5 bg-superficie px-6 py-3.5">
         <Button variant="secondary" onClick={onClose} disabled={mutation.isPending}>

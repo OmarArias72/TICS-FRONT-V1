@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, CalendarDays, Plus } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowRight, CalendarDays, Pencil, Plus } from "lucide-react";
 
 import {
   Alert,
@@ -18,15 +18,17 @@ import {
   PageHeader,
   StatusBadge,
 } from "@/components/ui";
-import { reservaSalasService, salaService } from "@/lib/api/services";
+import { configuracionService, reservaSalasService, salaService } from "@/lib/api/services";
 import { cn } from "@/lib/cn";
 import { estadoSolicitudReserva } from "@/lib/estados";
 import { formatearDia, hoyISO } from "@/lib/fechas";
 import { useAuthStore } from "@/store/authStore";
-import type { Sala } from "@/types/api";
+import type { Sala, UsoSala } from "@/types/api";
 
 import { AgendaTable } from "./AgendaTable";
+import { AvisoCambiosPendientes, useCambiosPendientes } from "./CambiosPendientes";
 import { clavesReservas } from "./claves";
+import { ModificarMiReservaModal } from "./MisReservasPage";
 import { MAX_DIAS_ANTICIPACION } from "./reglas";
 import { ReservaModal } from "./ReservaModal";
 
@@ -36,9 +38,22 @@ import { ReservaModal } from "./ReservaModal";
  */
 export function ReservaSalasPage() {
   const idUsuario = useAuthStore((s) => s.user?.idUsuario);
+  const esProfesor = useAuthStore((s) => s.user?.nombreRol === "Profesor");
+  const esAdmin = useAuthStore((s) => s.user?.nombreRol === "Admin");
+  const queryClient = useQueryClient();
+  // Admin: modifica directamente sus reservas desde la agenda (también las de profesores sin cuenta)
+  const [editando, setEditando] = useState<UsoSala | null>(null);
   const [idSalaElegida, setIdSalaElegida] = useState<number | null>(null);
   const [fecha, setFecha] = useState(hoyISO);
   const [modalAbierto, setModalAbierto] = useState(false);
+
+  // El Admin abre o cierra el módulo (Apertura / Cierre de agenda). Cerrado,
+  // el Profesor no puede consultar la agenda ni reservar (MODULO_DESHABILITADO).
+  const moduloQuery = useQuery({
+    queryKey: clavesReservas.modulo,
+    queryFn: () => configuracionService.obtenerModulo("RESERVAS"),
+  });
+  const bloqueado = esProfesor && moduloQuery.data?.disponible === false;
 
   const salasQuery = useQuery({ queryKey: clavesReservas.salas, queryFn: salaService.listarTodas });
   const salas = salasQuery.data ?? [];
@@ -48,15 +63,16 @@ export function ReservaSalasPage() {
   const agendaQuery = useQuery({
     queryKey: clavesReservas.agenda(sala?.idSala, fecha),
     queryFn: () => reservaSalasService.obtenerAgenda(sala!.idSala, fecha),
-    enabled: sala !== null && Boolean(fecha),
+    enabled: sala !== null && Boolean(fecha) && !bloqueado,
   });
 
   const misSolicitudesQuery = useQuery({
     queryKey: clavesReservas.misSolicitudes(idUsuario),
-    queryFn: () => reservaSalasService.misSolicitudes(idUsuario!),
+    queryFn: reservaSalasService.misSolicitudes,
     enabled: idUsuario !== undefined,
   });
   const recientes = (misSolicitudesQuery.data ?? []).slice(0, 3);
+  const { cambios } = useCambiosPendientes();
 
   return (
     <PageContainer>
@@ -72,6 +88,15 @@ export function ReservaSalasPage() {
               icon={<CalendarDays className="h-4 w-4" aria-hidden="true" />}
             >
               Mis reservas
+              {cambios.length > 0 && (
+                <span
+                  className="rounded-full bg-error px-2 text-xs font-extrabold text-white"
+                  title="Solicitudes de cambio de TIC por atender"
+                >
+                  {cambios.length}
+                  <span className="sr-only"> solicitudes de cambio por atender</span>
+                </span>
+              )}
             </ButtonLink>
             <ButtonLink
               href="/reservas/mis-solicitudes"
@@ -83,6 +108,18 @@ export function ReservaSalasPage() {
           </>
         }
       />
+
+      <AvisoCambiosPendientes compacto />
+
+      {bloqueado && (
+        <Alert tone="alerta" title="La reserva de salas no está disponible por ahora.">
+          {moduloQuery.data?.mensaje ||
+            "La administración de TICS cerró la agenda temporalmente. Inténtalo más tarde o comunícate con TIC."}
+          {moduloQuery.data?.fechaInicio && moduloQuery.data.fechaInicio > hoyISO() && (
+            <> Se abrirá el {formatearDia(moduloQuery.data.fechaInicio)}.</>
+          )}
+        </Alert>
+      )}
 
       <div className="flex flex-wrap items-start gap-6">
         <section aria-labelledby="titulo-salas" className="flex min-w-0 flex-[1_1_280px] flex-col gap-3">
@@ -146,7 +183,7 @@ export function ReservaSalasPage() {
                     />
                   </div>
                   <Button
-                    disabled={!sala}
+                    disabled={!sala || bloqueado}
                     icon={<Plus className="h-4 w-4" aria-hidden="true" />}
                     onClick={() => setModalAbierto(true)}
                   >
@@ -157,6 +194,21 @@ export function ReservaSalasPage() {
             />
             <AgendaTable
               agenda={agendaQuery.data ?? []}
+              acciones={
+                esAdmin
+                  ? (uso) =>
+                      uso.idUsuario === idUsuario && new Date(uso.fechaFin).getTime() > Date.now() ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          icon={<Pencil className="h-3.5 w-3.5" aria-hidden="true" />}
+                          onClick={() => setEditando(uso)}
+                        >
+                          Modificar
+                        </Button>
+                      ) : null
+                  : undefined
+              }
               cargando={sala !== null && agendaQuery.isPending}
               error={agendaQuery.isError ? agendaQuery.error.message : null}
               vacio={sala ? undefined : "Selecciona una sala para ver su agenda."}
@@ -204,6 +256,18 @@ export function ReservaSalasPage() {
       </div>
 
       <ReservaModal open={modalAbierto} onClose={() => setModalAbierto(false)} sala={sala} fechaInicial={fecha} />
+      {esAdmin && (
+        <ModificarMiReservaModal
+          reserva={editando}
+          salas={salas}
+          modoAdmin
+          onClose={() => setEditando(null)}
+          onTerminar={() => {
+            void queryClient.invalidateQueries({ queryKey: clavesReservas.agenda() });
+            void queryClient.invalidateQueries({ queryKey: clavesReservas.misReservas() });
+          }}
+        />
+      )}
     </PageContainer>
   );
 }

@@ -1,32 +1,12 @@
 import { apiClient } from "../client";
 import { request } from "../errors";
-import type {
-  LoginRequest,
-  Usuario,
-  UsuarioAdminCreateRequest,
-  UsuarioRegistroRequest,
-  UsuarioUpdateRequest,
-} from "@/types/api";
+import type { Rol, Usuario, UsuarioAdminCreateRequest, UsuarioUpdateRequest } from "@/types/api";
 
-/** Endpoints de `/api/usuarios`. */
+/**
+ * Endpoints de `/api/usuarios` (solo Admin). El login y el registro están en
+ * authService.
+ */
 export const usuarioService = {
-  /** POST /usuarios/login. Responde 401 con el motivo en texto si falla. */
-  login: (credenciales: LoginRequest) =>
-    request(
-      async () => (await apiClient.post<Usuario>("/usuarios/login", credenciales)).data,
-      "Error al iniciar sesión",
-    ),
-
-  /**
-   * POST /usuarios/registro. Registro público desde el sitio.
-   * Nuevo respecto al original: la página de registro no llamaba al backend.
-   */
-  registrar: (payload: UsuarioRegistroRequest) =>
-    request(
-      async () => (await apiClient.post<Usuario>("/usuarios/registro", payload)).data,
-      "Error al registrar el usuario",
-    ),
-
   listarUsuarios: () =>
     request(
       async () => (await apiClient.get<Usuario[]>("/usuarios")).data,
@@ -65,4 +45,14 @@ export const usuarioService = {
           .data,
       "Error al cambiar el estado del usuario",
     ),
+
+  /** GET /usuarios/roles: catálogo de roles con su id. */
+  listarRoles: () =>
+    request(async () => (await apiClient.get<Rol[]>("/usuarios/roles")).data, "Error al obtener los roles"),
+
+  /** POST /usuarios/{id}/desbloquear: quita el bloqueo por intentos fallidos de login. */
+  desbloquear: (id: number) =>
+    request(async () => {
+      await apiClient.post(`/usuarios/${id}/desbloquear`);
+    }, "Error al desbloquear la cuenta"),
 };

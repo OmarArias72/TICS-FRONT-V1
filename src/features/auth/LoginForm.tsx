@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { LoaderCircle, LogIn } from "lucide-react";
 import { toast } from "react-hot-toast";
 
+import { Alert } from "@/components/ui";
 import { cardClass, inputClass, labelClass, primaryButtonClass } from "@/components/ui/styles";
 import { destinoTrasLogin } from "@/lib/auth/roles";
 import { useAuthStore } from "@/store/authStore";
@@ -17,13 +18,16 @@ import { useAuthStore } from "@/store/authStore";
  * rol puede verla; si no, va a la sección principal del rol.
  */
 export function LoginForm() {
-  const [email, setEmail] = useState("");
+  const searchParams = useSearchParams();
+  // ?correo= llega desde la verificación o la recuperación de contraseña
+  const [email, setEmail] = useState(searchParams.get("correo") ?? "");
   const [password, setPassword] = useState("");
+  /** Correo que intentó entrar sin haberlo verificado (muestra el aviso con el enlace). */
+  const [sinVerificar, setSinVerificar] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
   const login = useAuthStore((s) => s.login);
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   // Con Cache Components la página queda oculta en memoria al navegar.
   // Se borra la contraseña al ocultarse para que no permanezca en el DOM.
@@ -33,6 +37,7 @@ export function LoginForm() {
 
   const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setSinVerificar(null);
     setCargando(true);
     const result = await login(email.trim(), password);
     setCargando(false);
@@ -40,8 +45,12 @@ export function LoginForm() {
     if (result.success) {
       toast.success("¡Bienvenido al sistema!", { duration: 3000 });
       router.replace(destinoTrasLogin(searchParams.get("next"), result.user.nombreRol));
+    } else if (result.error.codigo === "CORREO_NO_VERIFICADO") {
+      setSinVerificar(email.trim().toLowerCase());
     } else {
-      toast.error(result.message || "Credenciales incorrectas", { duration: 4000 });
+      // El backend explica cada caso (credenciales, cuenta inactiva o
+      // bloqueada por intentos); se muestra tal cual.
+      toast.error(result.error.message || "Credenciales incorrectas", { duration: 5000 });
     }
   };
 
@@ -86,6 +95,27 @@ export function LoginForm() {
             placeholder="••••••••"
           />
         </div>
+
+        <div className="-mt-2 text-right">
+          <Link
+            href={email.trim() ? `/olvide-password?correo=${encodeURIComponent(email.trim().toLowerCase())}` : "/olvide-password"}
+            className="text-sm font-semibold text-verde transition-colors hover:text-dorado-texto"
+          >
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </div>
+
+        {sinVerificar && (
+          <Alert tone="alerta" title="Tu correo aún no está verificado.">
+            Escribe el código que te enviamos al registrarte o pide uno nuevo.{" "}
+            <Link
+              href={`/verificar-correo?correo=${encodeURIComponent(sinVerificar)}`}
+              className="font-bold underline underline-offset-2"
+            >
+              Verificar mi correo
+            </Link>
+          </Alert>
+        )}
 
         <button type="submit" disabled={cargando} className={`${primaryButtonClass} w-full py-3.5`}>
           {cargando ? (

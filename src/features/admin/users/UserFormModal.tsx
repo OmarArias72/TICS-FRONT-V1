@@ -20,9 +20,8 @@ function valoresIniciales(usuario: Usuario | null): UsuarioFormValues {
     nombre: usuario?.nombre ?? "",
     apellidos: usuario?.apellidos ?? "",
     correo: usuario?.correo ?? "",
-    // Corrección respecto al original: el backend envía `nombreRol`, no `idRol`,
-    // y el formulario siempre arrancaba en Profesor (id 3) al editar.
-    idRol: usuario ? ID_ROL[usuario.nombreRol] : ID_ROL.Profesor,
+    // El backend v4 envía `idRol`; con versiones anteriores se deduce del nombre.
+    idRol: usuario ? (usuario.idRol ?? ID_ROL[usuario.nombreRol]) : ID_ROL.Profesor,
     activo: usuario?.activo ?? true,
     password: "",
     confirmarPassword: "",

@@ -9,7 +9,7 @@ import { toast } from "react-hot-toast";
 
 import { PasswordChecklist } from "@/components/ui/PasswordChecklist";
 import { cardClass, inputClass, labelClass, primaryButtonClass } from "@/components/ui/styles";
-import { usuarioService } from "@/lib/api/services";
+import { authService } from "@/lib/api/services";
 import { validarPassword } from "@/lib/validation/password";
 import type { UsuarioRegistroRequest } from "@/types/api";
 
@@ -24,9 +24,11 @@ const FORMULARIO_VACIO: UsuarioRegistroRequest = {
  * Registro público (antes RegistroUsuarioPage.jsx).
  *
  * Cambios respecto al original:
- * - Ahora llama a POST /usuarios/registro; antes solo hacía console.log.
- * - Se quitó el selector de rol: el backend lo ignora y asigna siempre el rol
- *   "Profesor". Los demás roles se asignan desde Gestión de Usuarios.
+ * - Llama a POST /auth/registro; antes solo hacía console.log.
+ * - Sin selector de rol: el backend lo decide por el dominio del correo
+ *   (`@alumno.uaemex.mx` -> Estudiante, `@uaemex.mx` -> Profesor).
+ * - La cuenta queda pendiente hasta verificar el correo: llega un código de 6
+ *   dígitos y un enlace; después del registro se abre /verificar-correo.
  * - La contraseña debe cumplir las mismas reglas que en Gestión de Usuarios.
  */
 export function RegistroForm() {
@@ -34,11 +36,12 @@ export function RegistroForm() {
   const router = useRouter();
 
   const registro = useMutation({
-    mutationFn: usuarioService.registrar,
-    onSuccess: () => {
-      toast.success("Cuenta creada. Ya puedes iniciar sesión.");
+    mutationFn: (payload: UsuarioRegistroRequest) => authService.registrar(payload),
+    onSuccess: (respuesta, enviado) => {
+      toast.success(respuesta.message || "Cuenta creada. Revisa tu correo para verificarla.", { duration: 6000 });
       setFormData(FORMULARIO_VACIO);
-      router.push("/login");
+      // Siguiente paso: escribir el código que llegó al correo
+      router.push(`/verificar-correo?nuevo=1&correo=${encodeURIComponent(enviado.correo.toLowerCase())}`);
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -119,7 +122,12 @@ export function RegistroForm() {
             value={formData.correo}
             onChange={handleChange}
             className={inputClass}
+            aria-describedby="registro-correo-ayuda"
+            placeholder="tucorreo@alumno.uaemex.mx"
           />
+          <p id="registro-correo-ayuda" className="mt-1 text-xs text-sobre-variante">
+            Usa tu correo institucional (@alumno.uaemex.mx o @uaemex.mx). Te enviaremos un código para verificarlo.
+          </p>
         </div>
 
         <div>
@@ -144,8 +152,9 @@ export function RegistroForm() {
         </div>
 
         <p className="rounded-xl bg-variante/60 px-3 py-2 text-xs text-sobre-variante">
-          Las cuentas nuevas se crean con el rol de Profesor. Si necesitas otro rol, solicítalo al
-          administrador.
+          Usa tu correo institucional: con <strong>@alumno.uaemex.mx</strong> la cuenta será de
+          Estudiante y con <strong>@uaemex.mx</strong>, de Profesor. Te enviaremos un enlace para
+          verificarlo antes de iniciar sesión.
         </p>
 
         <button
