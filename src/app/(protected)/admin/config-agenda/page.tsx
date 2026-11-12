@@ -1,4 +1,4 @@
-import { ConfigAgendaPanel } from "@/features/admin/ConfigAgendaPanel";
+import { ConfigAgendaPanel } from "@/features/reservas";
 
 /**
  * La página depende de la sesión, que AuthGuard verifica en el navegador

@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { PageLoader } from "@/components/ui/PageLoader";
-import { LoginForm } from "@/features/auth/LoginForm";
+import { LoginForm } from "@/features/auth";
 
 export const metadata: Metadata = { title: "Inicio de Sesión | Control TIC" };
 

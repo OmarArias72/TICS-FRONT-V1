@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { PageLoader } from "@/components/ui/PageLoader";
-import { VerificarCorreoForm } from "@/features/auth/VerificarCorreoForm";
+import { VerificarCorreoForm } from "@/features/auth";
 
 export const metadata: Metadata = { title: "Verificar correo | Control TIC" };
 

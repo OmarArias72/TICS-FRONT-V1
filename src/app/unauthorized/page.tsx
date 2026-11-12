@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ShieldX } from "lucide-react";
 
 import { cardClass } from "@/components/ui/styles";
-import { UnauthorizedActions } from "@/features/auth/UnauthorizedActions";
+import { UnauthorizedActions } from "@/features/auth";
 
 export const metadata: Metadata = { title: "Acceso denegado | Control TIC" };
 

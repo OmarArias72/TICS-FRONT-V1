@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { PageLoader } from "@/components/ui/PageLoader";
-import { RestablecerPasswordForm } from "@/features/auth/RestablecerPasswordForm";
+import { RestablecerPasswordForm } from "@/features/auth";
 
 export const metadata: Metadata = { title: "Nueva contraseña | Control TIC" };
 

@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 import { ButtonLink, PageContainer } from "@/components/ui";
-import { EncabezadoInfo, ListaInfo, SeccionInfo, TarjetaInfo } from "@/features/informacion/Bloques";
+import { EncabezadoInfo, ListaInfo, SeccionInfo, TarjetaInfo } from "@/features/publico";
 
 export const metadata: Metadata = {
   title: "Privacidad de tus datos | Control TIC",

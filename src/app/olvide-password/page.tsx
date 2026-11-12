@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { PageLoader } from "@/components/ui/PageLoader";
-import { OlvidePasswordForm } from "@/features/auth/OlvidePasswordForm";
+import { OlvidePasswordForm } from "@/features/auth";
 
 export const metadata: Metadata = { title: "Recuperar contraseña | Control TIC" };
 

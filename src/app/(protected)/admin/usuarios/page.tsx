@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { UsersAdminPage } from "@/features/admin/users/UsersAdminPage";
+import { UsersAdminPage } from "@/features/usuarios";
 
 /**
  * La página depende de la sesión, que AuthGuard verifica en el navegador

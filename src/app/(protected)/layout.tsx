@@ -1,7 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 
 import { PageLoader } from "@/components/ui/PageLoader";
-import { AuthGuard } from "@/features/auth/AuthGuard";
+import { AuthGuard } from "@/features/auth";
 
 /**
  * Layout de todas las rutas que exigen sesión. El grupo "(protected)" no

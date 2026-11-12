@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { PanelMesaAyudaPage } from "@/features/mesa-ayuda/PanelMesaAyudaPage";
+import { PanelMesaAyudaPage } from "@/features/mesa-ayuda";
 
 /**
  * La página depende de la sesión, que AuthGuard verifica en el navegador

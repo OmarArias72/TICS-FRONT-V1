@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PageContainer, PageHeader } from "@/components/ui";
-import { ComponentShowcase } from "@/features/dev/ComponentShowcase";
+import { ComponentShowcase } from "@/features/dev";
 
 export const metadata: Metadata = { title: "Componentes | Control TIC" };
 

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { ConteoPage } from "@/features/inventory/ConteoPage";
+import { ConteoPage } from "@/features/inventario";
 
 /**
  * La página depende de la sesión, que AuthGuard verifica en el navegador
