@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { PageLoader } from "@/components/ui/PageLoader";
-import { AulasPage } from "@/features/aulas/AulasPage";
+import { AulasPage } from "@/features/aulas";
 
 /**
  * La página depende de la sesión, que AuthGuard verifica en el navegador

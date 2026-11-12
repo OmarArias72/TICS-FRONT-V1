@@ -35,7 +35,7 @@ src/
     layout/NavBar.tsx, Footer.tsx
     providers/Providers.tsx    QueryClientProvider + Toaster
     ui/                        Piezas compartidas (Modal, ConfirmDialog...) si se repiten
-  features/<modulo>/           Misma organización que el origen, en .tsx
+  features/<modulo>/           pages/, components/, modals/, hooks/, utils/ e index.ts (ver decisión 23)
   lib/
     api/client.ts              Instancia Axios central
     api/errors.ts              Extracción uniforme del mensaje de error de Spring
@@ -93,8 +93,8 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 | Elemento de origen | Ubicación actual | Tratamiento | Destino en Next.js | Estado |
 |---|---|---|---|---|
 | authStore | `src/store/authStore.js` | A: `persist` de Zustand con `skipHydration`; clave `tic-auth` | `store/authStore.ts` | Hecho |
-| ProtectedRoute | `src/features/auth/ProtectedRoute.jsx` | C: layout protegido + `AuthGuard` | `app/(protected)/layout.tsx`, `features/auth/AuthGuard.tsx` | Hecho |
-| Constantes de roles | `AppRoutes.jsx`, `NavBar.jsx` (duplicadas y en desacuerdo) | C: fuente única de rutas y permisos por acción | `lib/auth/roles.ts`, `lib/auth/permisos.ts`, `features/auth/usePermiso.ts` | Hecho |
+| ProtectedRoute | `src/features/auth/ProtectedRoute.jsx` | C: layout protegido + `AuthGuard` | `app/(protected)/layout.tsx`, `features/auth/components/AuthGuard.tsx` | Hecho |
+| Constantes de roles | `AppRoutes.jsx`, `NavBar.jsx` (duplicadas y en desacuerdo) | C: fuente única de rutas y permisos por acción | `lib/auth/roles.ts`, `lib/auth/permisos.ts`, `features/auth/hooks/usePermiso.ts` | Hecho |
 | computerStore | `src/features/classroom-map/store/computerStore.js` | Se descarta: no se usa y llama a endpoints que no existen | — | — |
 
 ### Layout y páginas generales
@@ -111,16 +111,16 @@ El grupo `(protected)` no aparece en la URL: solo agrupa las rutas que comparten
 
 | Elemento de origen | Ubicación actual | Tratamiento | Destino en Next.js | Estado |
 |---|---|---|---|---|
-| LoginPage | `features/auth/LoginPage.jsx` | A: `useRouter`; volver a la ruta de origen con `?next=` | `app/login/page.tsx` + `features/auth/LoginForm.tsx` | Hecho |
-| RegistroUsuarioPage | `features/users/pages/RegistroUsuarioPage.jsx` | A: conectado a `POST /usuarios/registro`; sin selector de rol (el backend asigna Profesor) | `app/registro/page.tsx` + `features/users/RegistroForm.tsx` | Hecho |
-| Inventario (2 páginas, 7 componentes) | `features/inventory/**` | A: pestañas Equipos/Conteos, búsqueda con espera, reporte en modal, permisos por acción; corrige marca/modelo | `features/inventory/**` + `/inventario`, `/inventario/conteo` | Hecho |
+| LoginPage | `features/auth/LoginPage.jsx` | A: `useRouter`; volver a la ruta de origen con `?next=` | `app/login/page.tsx` + `features/auth/components/LoginForm.tsx` | Hecho |
+| RegistroUsuarioPage | `features/users/pages/RegistroUsuarioPage.jsx` | A: conectado a `POST /usuarios/registro`; sin selector de rol (el backend asigna Profesor) | `app/registro/page.tsx` + `features/auth/components/RegistroForm.tsx` | Hecho |
+| Inventario (2 páginas, 7 componentes) | `features/inventory/**` | A: pestañas Equipos/Conteos, búsqueda con espera, reporte en modal, permisos por acción; corrige marca/modelo | `features/inventario/**` + `/inventario`, `/inventario/conteo` | Hecho |
 | Mapa de aulas (1 página, 5 componentes, 5 modales) | `features/classroom-map/**` | A: salas con barra de estado; cuadrícula de PC por estado con panel lateral; formulario con react-hook-form + zod; resumen simplificado; sala abierta en la URL. Se descartan `ClassroomCanvasMap`, `RoomInfoModal` y `RoomSummaryModal`, que no se usaban | `features/aulas/**` + `/aulas` | Hecho |
 | Reservas (3 páginas, 2 componentes, 6 modales) | `features/salas/**` | A: reglas de reserva en `reglas.ts`, reserva directa o solicitud en un solo modal, control de reservas con aprobar / rechazar / reasignar / cancelar | `features/reservas/**` + `/reservas`, `/reservas/mis-solicitudes`, `/admin/reservas` | Hecho |
 | Mesa de ayuda (2 páginas, 2 componentes, 3 modales) | `features/solicitudes-tecnicas/**` | A: tarjetas con progreso por pasos (prototipo); panel con bandejas, lista y detalle lateral; validaciones del formulario iguales al backend; cierre automático al resolver | `features/mesa-ayuda/**` + `/solicitudes-tecnicas`, `/admin/solicitudes-tecnicas` | Hecho |
-| Gestión de usuarios (1 página, 5 componentes) | `features/admin/users/**` | A: react-hook-form + zod; corrige el rol que se perdía al editar; protege la cuenta propia; reglas de contraseña | `features/admin/users/**` + `/admin/usuarios` | Hecho |
+| Gestión de usuarios (1 página, 5 componentes) | `features/admin/users/**` | A: react-hook-form + zod; corrige el rol que se perdía al editar; protege la cuenta propia; reglas de contraseña | `features/usuarios/**` + `/admin/usuarios` | Hecho |
 | AdminReservaSalasPage | `features/admin/pages/AdminReservaSalasPage.jsx` | R: el `idAdmin` sale de la sesión dentro de `ControlReservasPage` | `app/(protected)/admin/reservas/page.tsx` | Hecho |
 | Bitácora (nuevo, sin equivalente en el original) | — | C: bitácora de equipos (Admin y Operador) y auditoría del sistema (Admin), con filtros, paginación y CSV | `features/bitacora/**` + `/admin/bitacora` | Hecho |
-| AdminConfigAgendaPage | `features/admin/pages/AdminConfigAgendaPage.jsx` | A: interruptor local con aviso "Pendiente de backend" | `app/(protected)/admin/config-agenda/page.tsx` + `features/admin/ConfigAgendaPanel.tsx` | Hecho |
+| AdminConfigAgendaPage | `features/admin/pages/AdminConfigAgendaPage.jsx` | A: interruptor local con aviso "Pendiente de backend" | `app/(protected)/admin/config-agenda/page.tsx` + `features/reservas/components/ConfigAgendaPanel.tsx` | Hecho |
 
 ## 3. Incompatibilidades Vite a Next.js
 
@@ -310,7 +310,7 @@ El frontend consulta cada 60 segundos. Para avisos instantáneos, más adelante 
 ### 7.5 Reglas comunes
 
 - "Hoy" debe calcularse en la zona del campus: `LocalDate.now(ZoneId.of("America/Mexico_City"))`, no en la del servidor.
-- El límite del profesor se valida en el servidor: `uso.getFechaInicio().toLocalDate().isAfter(hoy)`. El frontend aplica la misma regla en `profesorPuedeCambiar` (`features/reservas/reglas.ts`), pero no es suficiente por sí sola.
+- El límite del profesor se valida en el servidor: `uso.getFechaInicio().toLocalDate().isAfter(hoy)`. El frontend aplica la misma regla en `profesorPuedeCambiar` (`features/reservas/utils/reglas.ts`), pero no es suficiente por sí sola.
 - Las comparaciones de ids deben usar `Objects.equals` (ver el riesgo de `Integer !=` en la sección 5).
 - Igual que el resto del backend, estos endpoints reciben `idUsuario`/`idAdmin` sin verificarlos. Con autenticación real (JWT o sesión), esos ids deben salir del usuario autenticado y no del cuerpo de la petición.
 
@@ -385,7 +385,7 @@ Contrato completo en `CAMBIOS-FRONTEND-TICKETS-PERFIL.md` del backend. Requiere 
 
 - Decisión: cualquier usuario puede cambiar su correo en **Mi perfil**, de forma directa y confirmando su contraseña (sin enlace de verificación). El correo debe ser institucional (`@uaemex.mx` o `@alumno.uaemex.mx`) y no estar en uso. El rol no cambia aunque cambie el dominio: solo el Admin cambia roles.
 - Backend (modificado con autorización): `PUT /api/usuarios/me/correo {correoNuevo, password}` en `PerfilController`, `UsuarioService.cambiarMiCorreo` y `AuthDTOs.CambiarCorreoRequest`. Errores: `PASSWORD_ACTUAL_INCORRECTA` (400), `CORREO_NO_INSTITUCIONAL`, `CORREO_REGISTRADO`, `CORREO_SIN_CAMBIO`. Queda en la auditoría como `CAMBIAR_CORREO` (anterior → nuevo). No requiere cambios en la base de datos. La sesión sigue válida porque el JWT identifica al usuario por id.
-- Frontend: `perfilService.cambiarCorreo` y la sección "Correo electrónico" en `features/perfil/PerfilPage.tsx`; al guardar se actualiza el nombre/correo del usuario en sesión.
+- Frontend: `perfilService.cambiarCorreo` y la sección "Correo electrónico" en `features/perfil/pages/PerfilPage.tsx`; al guardar se actualiza el nombre/correo del usuario en sesión.
 
 ### Registro, verificación y recuperación de contraseña (PR 2, 2026-11-05)
 
@@ -412,10 +412,16 @@ Requiere `db/init/07-reservas-profesor-externo.sql` del backend.
 
 ### Avisos de cambio, ocupación al modificar y ayuda sin cuenta (2026-11-06)
 
-- **Decisión 21**: las solicitudes de cambio de TIC, además de la campana, se resaltan en **Mis solicitudes** y en **Reserva de Salas** (bloque dorado "TIC te pide cambiar una reserva", con "Responder" / "Modificar"), y el botón "Mis reservas" muestra cuántas hay por atender (`features/reservas/CambiosPendientes.tsx`, misma caché que Mis reservas). Los enlaces y la notificación (`/reservas/mis-reservas?reserva=<id>`) llevan a la reserva, que se resalta y se desplaza a la vista; las tarjetas con un cambio por responder tienen borde dorado.
+- **Decisión 21**: las solicitudes de cambio de TIC, además de la campana, se resaltan en **Mis solicitudes** y en **Reserva de Salas** (bloque dorado "TIC te pide cambiar una reserva", con "Responder" / "Modificar"), y el botón "Mis reservas" muestra cuántas hay por atender (`features/reservas/components/CambiosPendientes.tsx`, misma caché que Mis reservas). Los enlaces y la notificación (`/reservas/mis-reservas?reserva=<id>`) llevan a la reserva, que se resalta y se desplaza a la vista; las tarjetas con un cambio por responder tienen borde dorado.
 - Al modificar una reserva (profesor con cambio aceptado o Admin) se muestran las reservas de la sala y el día elegidos: la propia como "Tu reserva actual" y en rojo las que se empalman con el horario escrito.
 - Ayuda de tickets (`/ayuda`): nueva sección **"¿No puedes registrarte en la plataforma?"** con el flujo de la solicitud externa (acudir a TIC, enlace al correo personal, formulario sin cuenta, vence en 72 h y se rechaza sola, aviso final por correo) y preguntas frecuentes relacionadas.
 
 ### Operador puede dar de baja equipos (2026-11-06)
 
 - **Decisión 22**: `inventario.darDeBaja` pasa a Admin y Operador (formulario de inventario, formulario de equipo de cómputo, cambio masivo y finalizar mantenimiento sin reparación). Sacar un equipo de BAJA es el nuevo permiso `inventario.reactivar`, solo Admin; el backend responde `403 SOLO_ADMIN_BAJA` si un Operador lo intenta. Borrar el registro (`inventario.eliminar`) sigue siendo solo Admin.
+
+### Organización de features por tipo (2026-11-11)
+
+- **Decisión 23**: cada módulo de `src/features` se separa en `pages/`, `components/`, `modals/`, `hooks/` y `utils/`, con un `index.ts` que exporta lo que usa `app/` (y la campana que usa el `NavBar`). Nombres de carpetas en español.
+- Cambios de nombre de módulo: `inventory` -> `inventario`, `admin/users` -> `usuarios`; `users/RegistroForm` pasa a `auth/components`; `admin/ConfigAgendaPanel` pasa a `reservas/components`; `informacion/Bloques` y `landing/LandingSessionActions` pasan a `publico/components`.
+- Solo se movieron archivos y se ajustaron importaciones; no cambia el comportamiento ni la interfaz. 73 archivos movidos y 11 `index.ts` nuevos.

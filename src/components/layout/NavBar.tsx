@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { House, LogOut, Menu, UserRound, X } from "lucide-react";
 
-import { NotificacionesBell } from "@/features/notificaciones/NotificacionesBell";
+import { NotificacionesBell } from "@/features/notificaciones";
 import { enlacesDeMenu } from "@/lib/auth/roles";
 
 import { iconoDeRuta } from "./iconosMenu";

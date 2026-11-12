@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { PerfilPage } from "@/features/perfil/PerfilPage";
+import { PerfilPage } from "@/features/perfil";
 
 /**
  * Perfil del usuario en sesión (cualquier rol). La página depende de la

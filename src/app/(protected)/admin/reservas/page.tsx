@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { ControlReservasPage } from "@/features/reservas/ControlReservasPage";
+import { ControlReservasPage } from "@/features/reservas";
 
 /**
  * La página depende de la sesión, que AuthGuard verifica en el navegador

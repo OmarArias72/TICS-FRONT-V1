@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { PageLoader } from "@/components/ui/PageLoader";
-import { FormularioExternoPage } from "@/features/mesa-ayuda/FormularioExternoPage";
+import { FormularioExternoPage } from "@/features/mesa-ayuda";
 
 export const metadata: Metadata = {
   title: "Formulario de solicitud | Control TIC",

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { RegistroForm } from "@/features/users/RegistroForm";
+import { RegistroForm } from "@/features/auth";
 
 export const metadata: Metadata = { title: "Registro | Control TIC" };
 

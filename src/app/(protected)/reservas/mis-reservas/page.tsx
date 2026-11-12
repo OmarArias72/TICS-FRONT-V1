@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { PageLoader } from "@/components/ui/PageLoader";
-import { MisReservasPage } from "@/features/reservas/MisReservasPage";
+import { MisReservasPage } from "@/features/reservas";
 
 /**
  * La página depende de la sesión, que AuthGuard verifica en el navegador

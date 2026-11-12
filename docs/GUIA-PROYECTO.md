@@ -123,16 +123,18 @@ tic-cuut/
     │   ├── layout/            NavBar (menú lateral + campana), Footer
     │   ├── providers/         QueryClient y rehidratación de la sesión
     │   └── ui/                Componentes compartidos (ver sección 8)
-    ├── features/              Lógica y pantallas por módulo
-    │   ├── auth/              AuthGuard, LoginForm, usePermiso
-    │   ├── admin/             users/ (gestión de usuarios), ConfigAgendaPanel
+    ├── features/              Lógica y pantallas por módulo (ver abajo)
+    │   ├── auth/              AuthGuard, formularios de login/registro/contraseña, usePermiso
     │   ├── aulas/             Mapa de Aulas
-    │   ├── inventory/         Inventario y conteos
-    │   ├── reservas/          Reserva y control de salas
-    │   ├── mesa-ayuda/        Solicitudes técnicas
-    │   ├── notificaciones/    Campana (pendiente de backend)
-    │   ├── users/             Registro público
-    │   ├── landing/, dev/
+    │   ├── bitacora/          Bitácora de equipos y auditoría
+    │   ├── inventario/        Inventario y conteos
+    │   ├── mesa-ayuda/        Solicitudes técnicas, panel, buzón y formulario externo
+    │   ├── notificaciones/    Campana
+    │   ├── perfil/            Mi perfil
+    │   ├── publico/           Bloques de páginas públicas (privacidad, ayuda) y acciones del inicio
+    │   ├── reservas/          Reserva y control de salas, apertura/cierre de agenda
+    │   ├── usuarios/          Gestión de usuarios
+    │   └── dev/               Muestrario de componentes
     ├── hooks/                 useDebouncedValue
     ├── lib/
     │   ├── api/               client.ts, errors.ts, funcionesBackend.ts, services/*
@@ -145,7 +147,24 @@ tic-cuut/
     └── types/api/*.ts         Contratos con el backend
 ```
 
-Cada carpeta de `features/<modulo>/` suele tener: la página (`*Page.tsx`), sus modales, `schemas.ts` (zod), `claves.ts` (claves de React Query) y archivos de reglas puras (`reglas.ts`, `flujo.ts`, `equipos.ts`). Las páginas de `app/` solo importan el componente del módulo y definen `metadata`.
+Cada módulo de `features/<modulo>/` se organiza por tipo de archivo (solo existen las carpetas que el módulo necesita):
+
+```
+features/<modulo>/
+├── pages/        Pantalla completa que monta una ruta de app/ (*Page.tsx)
+├── components/   Piezas de la pantalla (tablas, paneles, vistas, formularios)
+├── modals/       Ventanas modales (*Modal.tsx)
+├── hooks/        Hooks propios del módulo (use*.ts)
+├── utils/        Lógica sin interfaz: schemas.ts (zod), claves.ts (React Query), reglas.ts, flujo.ts...
+└── index.ts      Lo que el módulo ofrece hacia fuera
+```
+
+Reglas de importación:
+
+- Desde fuera del módulo (`app/`, `components/`, otros archivos ajenos a `features`) se importa **solo del `index.ts`**: `import { AulasPage } from "@/features/aulas";`.
+- Dentro del mismo módulo se usan rutas relativas: `import { salasKeys } from "../utils/claves";`.
+- Entre módulos distintos se importa el archivo concreto: `import { usePermiso } from "@/features/auth/hooks/usePermiso";` (evita ciclos entre `index.ts`).
+- Las páginas de `app/` solo importan la página del módulo y definen `metadata`. Si un archivo nuevo debe usarse desde `app/`, se agrega su export al `index.ts`.
 
 ---
 
@@ -247,9 +266,9 @@ Todas bajo `/api`. Tipos en `src/types/api/`, servicios en `src/lib/api/services
 
 ### Patrones obligatorios
 
-- **Formularios**: react-hook-form + zod (`schemas.ts` del módulo). Para leer valores mientras se escribe, usar `useWatch` (no `watch()`, que choca con el React Compiler).
+- **Formularios**: react-hook-form + zod (`utils/schemas.ts` del módulo). Para leer valores mientras se escribe, usar `useWatch` (no `watch()`, que choca con el React Compiler).
 - **Modales con formulario**: el `Modal` monta un componente interno solo cuando está abierto y con `key` por registro; los valores iniciales salen de `useState(() => ...)`. **No** reiniciar formularios con `useEffect` + `setState` (regla `react-hooks/set-state-in-effect`).
-- **Datos del servidor**: React Query con claves centralizadas en `features/<modulo>/claves.ts`. Tras una mutación, invalidar las claves afectadas (también las de otros módulos si comparten datos, por ejemplo Mapa de Aulas -> Inventario).
+- **Datos del servidor**: React Query con claves centralizadas en `features/<modulo>/utils/claves.ts`. Tras una mutación, invalidar las claves afectadas (también las de otros módulos si comparten datos, por ejemplo Mapa de Aulas -> Inventario).
 - **Selección en listas**: guardar el **id** seleccionado y buscar el objeto en los datos actuales, para que el detalle refleje los cambios tras refrescar.
 - **Accesibilidad**: `FormField` enlaza etiqueta, ayuda y error; filtros con `aria-pressed`; textos solo para lectores con `sr-only`.
 - **Idioma**: interfaz, comentarios y documentación en español; nombres de componentes en PascalCase (español o inglés según el módulo de origen).
@@ -257,8 +276,8 @@ Todas bajo `/api`. Tipos en `src/types/api/`, servicios en `src/lib/api/services
 ### Reglas de negocio implementadas en el frontend
 
 - **Contraseñas de usuario** (`lib/validation/password.ts`): 8 a 64 caracteres, mayúscula, minúscula, número, sin espacios. El Admin no puede eliminarse, desactivarse ni cambiar su propio rol.
-- **Reservas** (`features/reservas/reglas.ts`): reserva directa desde hoy hasta 30 días, fin posterior al inicio, sin empalmes; si no se cumple, se ofrece una solicitud extraordinaria. El profesor cancela o modifica su reserva solo **hasta el día anterior**.
-- **Mesa de Ayuda** (`features/mesa-ayuda/flujo.ts`): PENDIENTE -> APROBADA -> FORMULARIO_ENVIADO -> ESPERA_TICKET -> TICKET_CREADO -> CERRADA (más RECHAZADA y CANCELADA). Máximo 3 solicitudes activas y una por tipo cada 24 h (lo valida el backend).
+- **Reservas** (`features/reservas/utils/reglas.ts`): reserva directa desde hoy hasta 30 días, fin posterior al inicio, sin empalmes; si no se cumple, se ofrece una solicitud extraordinaria. El profesor cancela o modifica su reserva solo **hasta el día anterior**.
+- **Mesa de Ayuda** (`features/mesa-ayuda/utils/flujo.ts`): PENDIENTE -> APROBADA -> FORMULARIO_ENVIADO -> ESPERA_TICKET -> TICKET_CREADO -> CERRADA (más RECHAZADA y CANCELADA). Máximo 3 solicitudes activas y una por tipo cada 24 h (lo valida el backend).
 - **Inventario y Mapa de Aulas**: el Operador no puede dar de BAJA ni eliminar; el número de inventario no se cambia en un equipo existente.
 
 ---

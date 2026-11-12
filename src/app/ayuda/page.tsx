@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 
 import { ButtonLink, PageContainer } from "@/components/ui";
-import { EncabezadoInfo, ListaInfo, Pregunta, SeccionInfo, TarjetaInfo } from "@/features/informacion/Bloques";
+import { EncabezadoInfo, ListaInfo, Pregunta, SeccionInfo, TarjetaInfo } from "@/features/publico";
 
 export const metadata: Metadata = {
   title: "Ayuda con tickets | Control TIC",

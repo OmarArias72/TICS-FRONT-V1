@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 
-import { LandingSessionActions } from "@/features/landing/LandingSessionActions";
+import { LandingSessionActions } from "@/features/publico";
 
 export const metadata: Metadata = {
   title: "Control TIC | Centro Universitario UAEM Tianguistenco",
